@@ -41,9 +41,23 @@ class CodexHookTest(unittest.TestCase):
         self.flag = self.config_dir / ".i-have-adhd-always"
         self.log = self.home / ".local" / "state" / "i-have-adhd" / "decisions.log"
 
-    def fake_ps(self, line):
+    def fake_ps(self, line, comm=None):
         path = self.bin_dir / "ps"
-        path.write_text("#!/bin/sh\nprintf '%s\\n' " + json.dumps(line) + "\n")
+        if comm is None:
+            parts = line.strip().split()
+            comm = parts[1] if len(parts) > 1 else ""
+        script = f"""#!/bin/sh
+for arg in "$@"; do
+  case "$arg" in
+    *comm=*)
+      printf '%s\\n' {json.dumps(comm)}
+      exit 0
+      ;;
+  esac
+done
+printf '%s\\n' {json.dumps(line)}
+"""
+        path.write_text(script)
         path.chmod(0o755)
 
     def env(self, **overrides):
@@ -150,6 +164,32 @@ class CodexHookTest(unittest.TestCase):
     def test_codex_unclear_returns_only_system_message(self):
         self.opt_in()
         self.fake_ps("1 /bin/zsh -l")
+
+        result = self.run_hook()
+
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual({"systemMessage": NOTICE}, self.payload(result))
+
+    def test_codex_parent_executable_with_spaces_classifies(self):
+        self.opt_in()
+        self.fake_ps(
+            "1 /Applications/Custom Codex/bin/codex app-server --managed-daemon",
+            comm="/Applications/Custom Codex/bin/codex",
+        )
+
+        result = self.run_hook()
+
+        self.assertEqual(0, result.returncode, result.stderr)
+        payload = self.payload(result)
+        self.assertIn("additionalContext", payload["hookSpecificOutput"])
+        self.assertIn("ADHD MODE ACTIVE", payload["hookSpecificOutput"]["additionalContext"])
+
+    def test_non_codex_parent_executable_with_spaces_stays_unclear(self):
+        self.opt_in()
+        self.fake_ps(
+            "1 /Applications/Custom Tool/bin/tool some-arg",
+            comm="/Applications/Custom Tool/bin/tool",
+        )
 
         result = self.run_hook()
 

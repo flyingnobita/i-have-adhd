@@ -1,5 +1,6 @@
 # Changelog
 
+- Nov-10, 2026 - 05:15 PM +08 - Isolate process executable path from command line arguments when identifying Codex parents.
 - Nov-10, 2026 - 05:10 PM +08 - Evict OpenCode session cache entry when session.deleted event is received.
 - Nov-10, 2026 - 05:05 PM +08 - Treat missing OpenCode session IDs as unclear and gate diagnostic logging with a once-flag.
 - Nov-10, 2026 - 05:00 PM +08 - Look up OpenCode parent session via runtime API to skip subagents and fail closed on lookup error.

@@ -233,10 +233,68 @@ export function decisionResult(decision) {
   return decision === "human" ? "injected" : `skipped-${decision}`;
 }
 
-function parsePsLine(output) {
-  const match = /^\s*(\d+)\s+(.+?)\s*$/.exec(output);
+function parseProcessOutputs(comm, argsOutput) {
+  const match = /^\s*(\d+)\s+(.+?)\s*$/.exec(argsOutput);
   if (!match) return null;
-  return { ppid: Number(match[1]), argv: match[2].split(/\s+/) };
+  const ppid = Number(match[1]);
+  const fullArgs = match[2];
+
+  if (!comm) {
+    return { ppid, argv: fullArgs.split(/\s+/) };
+  }
+
+  if (fullArgs.startsWith(comm)) {
+    const rest = fullArgs.slice(comm.length).trim();
+    return { ppid, argv: [comm, ...(rest ? rest.split(/\s+/) : [])] };
+  }
+
+  const quotedComm = `"${comm}"`;
+  if (fullArgs.startsWith(quotedComm)) {
+    const rest = fullArgs.slice(quotedComm.length).trim();
+    return { ppid, argv: [comm, ...(rest ? rest.split(/\s+/) : [])] };
+  }
+
+  const commBase = path.basename(comm).toLowerCase();
+  const idx = fullArgs.toLowerCase().indexOf(commBase);
+  if (idx !== -1) {
+    const endIdx = idx + commBase.length;
+    const nextChar = fullArgs.charAt(endIdx);
+    if (nextChar === "" || nextChar === " " || nextChar === '"') {
+      const execCandidate = fullArgs.slice(0, endIdx).replace(/^"/, "");
+      if (path.basename(execCandidate).toLowerCase() === commBase) {
+        const rest = fullArgs.slice(endIdx + (nextChar === '"' ? 1 : 0)).trim();
+        return { ppid, argv: [execCandidate, ...(rest ? rest.split(/\s+/) : [])] };
+      }
+    }
+  }
+
+  return { ppid, argv: fullArgs.split(/\s+/) };
+}
+
+function parseWin32Process(output) {
+  if (!output) return null;
+  const parts = output.trim().split("\t");
+  if (parts.length < 3) return null;
+  const ppid = Number(parts[0]);
+  const execPath = parts[1].trim();
+  const cmdLine = parts[2].trim();
+
+  if (!Number.isInteger(ppid) || ppid <= 0) return null;
+  if (!execPath) {
+    if (!cmdLine) return null;
+    return { ppid, argv: cmdLine.split(/\s+/) };
+  }
+
+  if (cmdLine.startsWith(`"${execPath}"`)) {
+    const rest = cmdLine.slice(execPath.length + 2).trim();
+    return { ppid, argv: [execPath, ...(rest ? rest.split(/\s+/) : [])] };
+  }
+  if (cmdLine.startsWith(execPath)) {
+    const rest = cmdLine.slice(execPath.length).trim();
+    return { ppid, argv: [execPath, ...(rest ? rest.split(/\s+/) : [])] };
+  }
+
+  return { ppid, argv: [execPath, ...(cmdLine ? cmdLine.split(/\s+/) : [])] };
 }
 
 function readProcess(pid) {
@@ -248,19 +306,25 @@ function readProcess(pid) {
           "-NoProfile",
           "-NonInteractive",
           "-Command",
-          `$p = Get-CimInstance Win32_Process -Filter 'ProcessId=${pid}'; if ($p) { "$($p.ParentProcessId) $($p.CommandLine)" }`,
+          `$p = Get-CimInstance Win32_Process -Filter 'ProcessId=${pid}'; if ($p) { "$($p.ParentProcessId)\`t$($p.ExecutablePath)\`t$($p.CommandLine)" }`,
         ],
         { encoding: "utf8", timeout: 1000, stdio: ["ignore", "pipe", "ignore"] },
       );
-      return parsePsLine(output);
+      return parseWin32Process(output);
     }
-    const output = execFileSync("ps", ["-o", "ppid=,args=", "-p", String(pid)], {
+    const commOutput = execFileSync("ps", ["-o", "comm=", "-p", String(pid)], {
+      encoding: "utf8",
+      timeout: 1000,
+      maxBuffer: 64 * 1024,
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim();
+    const argsOutput = execFileSync("ps", ["-o", "ppid=,args=", "-p", String(pid)], {
       encoding: "utf8",
       timeout: 1000,
       maxBuffer: 64 * 1024,
       stdio: ["ignore", "pipe", "ignore"],
     });
-    return parsePsLine(output);
+    return parseProcessOutputs(commOutput, argsOutput);
   } catch {
     return null;
   }
