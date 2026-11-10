@@ -220,6 +220,28 @@ class OpenCodePluginTest(unittest.TestCase):
         self.assertIn("ADHD MODE ACTIVE", res["systems"][1])
         self.assertEqual(1, res.get("lookups"))
 
+    def test_missing_session_id_is_unclear_and_logs_once(self):
+        self.opt_in()
+        for mode in INJECTION_MODES:
+            with self.subTest(mode=mode):
+                if self.log.exists():
+                    self.log.unlink()
+                res = self.contexts(
+                    mode,
+                    [{"sessionID": None}, {"sessionID": None}],
+                    extra_env={"I_HAVE_ADHD_LOG": "1"},
+                )
+                self.assertEqual(2, len(res["systems"]))
+                self.assertEqual("", res["systems"][0])
+                self.assertEqual("", res["systems"][1])
+                self.assertEqual([], res["toasts"])
+                self.assertTrue(self.log.exists())
+                log_lines = self.log.read_text().strip().splitlines()
+                self.assertEqual(1, len(log_lines))
+                entry = json.loads(log_lines[0])
+                self.assertEqual("skipped-unclear", entry["result"])
+                self.assertEqual("unknown", entry["signals"]["parentId"])
+
     def test_opt_out_wins_over_top_level_assumption(self):
         self.opt_in()
         for mode in INJECTION_MODES:

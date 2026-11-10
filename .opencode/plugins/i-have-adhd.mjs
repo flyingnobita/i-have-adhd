@@ -45,6 +45,7 @@ function rulesetBody() {
 }
 
 const sessionCache = new Map();
+let missingSessionLogged = false;
 
 async function lookupSessionParent(sessionID, clientOrCtx, runtime) {
   if (!clientOrCtx) {
@@ -124,21 +125,28 @@ async function sessionEntry(value, clientOrCtx, runtime) {
       });
     }
   } else {
-    decision = classifySession({
-      agent: 'opencode',
-      ctx: { parentID: value?.parentID },
-    });
+    decision = {
+      decision: 'unclear',
+      reason: 'opencode-session-id-missing',
+      signals: { parentId: 'unknown' },
+    };
   }
 
   const entry = { decision, toasted: false };
   if (sessionID) {
     sessionCache.set(sessionID, entry);
-  }
-
-  try {
-    logDecision({ agent: 'opencode', ...decision, flagPath });
-  } catch {
-    // Logging failures never block startup or change a decision.
+    try {
+      logDecision({ agent: 'opencode', ...decision, flagPath });
+    } catch {
+      // Logging failures never block startup or change a decision.
+    }
+  } else if (!missingSessionLogged) {
+    missingSessionLogged = true;
+    try {
+      logDecision({ agent: 'opencode', ...decision, flagPath });
+    } catch {
+      // Logging failures never block startup or change a decision.
+    }
   }
 
   return entry;
