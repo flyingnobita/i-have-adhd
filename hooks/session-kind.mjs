@@ -51,10 +51,42 @@ const CODEX_VALUE_FLAGS = new Set([
   "--ask-for-approval",
   "-C",
   "--cd",
-  "-i",
-  "--image",
+  "--local-provider",
   "--add-dir",
   "--remote-auth-token-env",
+]);
+
+const CODEX_SUBCOMMANDS = new Set([
+  "agents",
+  "exec",
+  "e",
+  "review",
+  "login",
+  "logout",
+  "mcp",
+  "plugin",
+  "app-server",
+  "remote-control",
+  "app",
+  "completion",
+  "update",
+  "doctor",
+  "sandbox",
+  "debug",
+  "apply",
+  "a",
+  "resume",
+  "queue",
+  "archive",
+  "delete",
+  "migrate-rollouts",
+  "migrate-nfs-db",
+  "unarchive",
+  "fork",
+  "cloud",
+  "exec-server",
+  "features",
+  "help",
 ]);
 
 function codexParent(parent) {
@@ -70,6 +102,18 @@ function codexParent(parent) {
     if (token === "--") {
       i += 1;
       break;
+    }
+    if (token === "-i" || token === "--image") {
+      i += 1;
+      while (i < parent.length) {
+        const next = parent[i];
+        if (typeof next !== "string") return "";
+        if (next.startsWith("-") || CODEX_SUBCOMMANDS.has(next)) {
+          break;
+        }
+        i += 1;
+      }
+      continue;
     }
     if (token.startsWith("-")) {
       if (CODEX_VALUE_FLAGS.has(token)) {

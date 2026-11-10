@@ -113,6 +113,18 @@ class SessionKindTest(unittest.TestCase):
         self.assertEqual("codex-exec", result["reason"])
         self.assertEqual({"parent": "exec"}, result["signals"])
 
+    def test_codex_local_provider_and_multivalue_images(self):
+        cases = [
+            (["codex", "--oss", "--local-provider", "ollama", "exec"], "non-human"),
+            (["codex", "-i", "a.png", "b.png", "exec"], "non-human"),
+            (["codex", "--image", "a.png", "b.png", "app-server", "--managed-daemon"], "human"),
+            (["codex", "-i", "a.png", "b.png"], "unclear"),
+        ]
+        for parent, expected in cases:
+            with self.subTest(parent=parent):
+                result = self.classify(agent="codex", parent=parent)
+                self.assertEqual(expected, result["decision"])
+
     def test_pi_mode_mapping(self):
         for mode, decision in {"tui": "human", "print": "non-human", "json": "non-human", "rpc": "unclear"}.items():
             with self.subTest(mode=mode):
