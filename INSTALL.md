@@ -36,7 +36,14 @@ Codex asks you to trust the new hook on first run. Review and trust the fork's s
 trusted_hash = "sha256:<first part of currentHash before />"
 ```
 
-where `<marketplace>` is `flyingnobita-i-have-adhd` for the documented install. Note that `trusted_hash` comes from the app-server `hooks/list` `currentHash` (the first part before `/`). The hook supplies the complete skill through `hookSpecificOutput.additionalContext`; an unclear session receives only a `systemMessage` notice. Non-human, opted-out, missing-flag, and failure paths stay silent.
+where `<marketplace>` is `flyingnobita-i-have-adhd` for the documented install. If Codex hooks are not already enabled, also set
+
+```toml
+[features]
+hooks = true
+```
+
+in `~/.codex/config.toml`. Note that `trusted_hash` comes from the app-server `hooks/list` `currentHash` (the first part before `/`). The hook supplies the complete skill through `hookSpecificOutput.additionalContext`; an unclear session receives only a `systemMessage` notice. Non-human, opted-out, missing-flag, and failure paths stay silent.
 
 # How to install
 
