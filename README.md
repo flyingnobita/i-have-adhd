@@ -1,8 +1,26 @@
+<p align="center">
+  <img src="./logo.png" alt="i-have-adhd" width="140" />
+</p>
+<p align="center">
+  <strong>ADHD-friendly outputs. No ADHD diagnosis needed!</strong>
+</p>
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/flyingnobita/i-have-adhd?style=flat" alt="License"></a>
+</p>
+
 # i-have-adhd
+
+A skill for your coding assistant that stops it from burying the answer: action first, steps numbered, no "Hope this helps!" This repository is a standalone fork of [ayghri/i-have-adhd](https://github.com/ayghri/i-have-adhd) by Ayoub G., the original author; the [upstream README](https://github.com/ayghri/i-have-adhd#readme) has the original pitch.
 
 ## Why this fork exists
 
-[flyingnobita/i-have-adhd](https://github.com/flyingnobita/i-have-adhd) is a standalone fork of Ayoub G.'s original project. Ayoub G. is the original author. This fork keeps the skill, plugin, and `/i-have-adhd` command names, but loads always-on rules only when a human is reading. Explicit invocation still works in any session.
+The rules are written for a person reading replies as they arrive. Upstream injects them into every session once the flag file exists, and a worker session in Orca or Herdr looks the same to the hook as a human one.
+
+- Rules 3 and 9 are written for a reader, not a pipeline. One closing next step and a five-item working set suit a person; in a worker report, a handoff, or a commit message they push the model to hold back what the next agent needs.
+- Other skills compete with them. A findings table, a question round, or a full report has its own required shape, and rules 2, 3, and 9 pull toward a shorter one. This fork's `SKILL.md` says the other skill wins, but a rule sitting in context still competes with it.
+- Orchestration multiplies it. An agent launches workers, each worker's output goes to another agent, and only the reply at the end of the chain reaches a person.
+
+This fork loads the rules only when a human is reading. The skill name, plugin name, and `/i-have-adhd` command are unchanged, and explicit invocation works in any session. [ADR 0001](docs/adr/0001-human-session-gating.md) records the alternatives rejected, including relying on the scope clause alone.
 
 Always-on remains opt-in through each agent's flag file or configuration. The automatic decision is:
 
@@ -20,72 +38,27 @@ An unclear session does not load the rules and shows only this notice:
 i-have-adhd: couldn't tell if a human is reading; rules not loaded. Run /i-have-adhd to turn them on.
 ```
 
-Decision logging is off by default. Add a line containing exactly `log` to the agent's always-on flag file or set `I_HAVE_ADHD_LOG=1` to append one JSON object per decision to `~/.local/state/i-have-adhd/decisions.log`.
+Decision logging is off by default. Add a line that is exactly `log` to the agent's always-on flag file, or set `I_HAVE_ADHD_LOG=1`, to append one JSON object per decision to `~/.local/state/i-have-adhd/decisions.log`.
 
 ### Opt out and worker sessions
 
-`I_HAVE_ADHD=0` overrides every human signal and disables automatic injection. Orchestrators set it for workers so ADHD chat formatting does not shape subagent prompts, orchestrator reports, files, commits, PRs, or handoffs.
+`I_HAVE_ADHD=0` overrides every other signal and turns automatic injection off. Set it in a worker's environment so ADHD chat formatting does not shape subagent prompts, orchestrator reports, files, commits, PRs, or handoffs.
 
-Run `export I_HAVE_ADHD=0` in the Herdr pane first, for example `herdr pane run <pane> "export I_HAVE_ADHD=0"`, then `herdr agent start ...`. For Orca, set it in the worker's environment where the launcher allows; otherwise rely on the skill's scope clause, which tells unattended workers to ignore it.
+- Herdr: run `export I_HAVE_ADHD=0` in the pane first, for example `herdr pane run <pane> "export I_HAVE_ADHD=0"`, then start the agent.
+- Orca: set it in the worker's environment if the launcher allows. `worker-start` does not, so those workers rely on the backstop below.
+- If detection gets a session wrong, the skill's scope clause tells unattended workers to ignore the rules.
 
 ### OpenCode exception
 
-OpenCode has no signal that distinguishes `run` from the TUI. With the always-on flag, top-level sessions are assumed human, while subagents are skipped by querying OpenCode's session API (`client.session.get` in V1, `ctx.session.get` in V2) to inspect `parentID`. If the lookup fails or the session ID is missing, the decision fails closed as unclear (no injection). OpenCode V1 shows an `assumed human` toast after injection; V2 has no toast API.
+OpenCode has no signal that distinguishes `run` from the TUI. With the always-on flag, top-level sessions are assumed human, while subagents are skipped by querying OpenCode's session API (`client.session.get` in V1, `ctx.session.get` in V2) to inspect `parentID`. If the lookup fails or the session ID is missing, the decision fails closed as unclear (no injection). OpenCode V1 releases with a toast API show an `assumed human` toast after injection; V2 and older V1 releases show none.
 
-See [INSTALL.md](INSTALL.md) for installation, upstream removal, Codex hook trust, and agent-specific flag paths.
-
----
-
-## Original README (upstream ayghri/i-have-adhd)
-
-<p align="center">
-  <img src="./logo.png" alt="i-have-adhd" width="140" />
-</p>
-<p align="center">
-  <strong align="center">ADHD-friendly outputs. No ADHD diagnosis needed!</strong>
-</p>
-<p align="center">
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/flyingnobita/i-have-adhd?style=flat" alt="License"></a>
-</p>
-
-<p align="center">
-  <strong title="English" aria-label="English">🇬🇧</strong> ·
-  <a href=".github/readme/README.zh-CN.md" title="简体中文" aria-label="简体中文">🇨🇳</a> ·
-  <a href=".github/readme/README.es.md" title="Español" aria-label="Español">🇪🇸</a> ·
-  <a href=".github/readme/README.pt-BR.md" title="Português (Brasil)" aria-label="Português (Brasil)">🇧🇷</a> ·
-  <a href=".github/readme/README.ja.md" title="日本語" aria-label="日本語">🇯🇵</a> ·
-  <a href=".github/readme/README.vi.md" title="Tiếng Việt" aria-label="Tiếng Việt">🇻🇳</a> ·
-  <a href=".github/readme/README.ko.md" title="한국어" aria-label="한국어">🇰🇷</a> ·
-  <a href=".github/readme/README.fa.md" title="فارسی" aria-label="فارسی">🇮🇷</a> ·
-  <a href=".github/readme/README.th.md" title="ภาษาไทย" aria-label="ภาษาไทย">🇹🇭</a> ·
-  <a href=".github/readme/README.ar.md" title="العربية" aria-label="العربية">🇸🇦</a> ·
-  <a href=".github/readme/README.fr.md" title="Français" aria-label="Français">🇫🇷</a>
-</p>
-
-
-## Install
-
-Copy/paste into your CLI prompt:
-
-```text
-Install the i-have-adhd skill/plugin from https://github.com/flyingnobita/i-have-adhd, refer to the repo's AGENTS.md for instructions.
-```
-
-Or 🔗 [check the installation instructions](INSTALL.md).
-
-## What it does
-
-A skill for your coding assistant that stops it from burying the answer. Action first. Steps numbered. No "Hope this helps!"
-
-[Kacper Rutkiewicz | AI Made Simple](https://youtu.be/NEl8kPWZP_Y) has made a good breakdown of an earlier version of the skill.
-## What changes
-
+## Before and after
 
 <table>
 <tr>
 <td width="50%">
 
-## Before
+### Before
 
 > Great question! Let me think about this. Your auth flow has a few moving pieces: the middleware, the token verification, and the cookie handling. Looking at `src/auth.ts`, the `verifyToken` function (around lines 42-58) seems to be using an older `jsonwebtoken` API. One approach would be to update the package and rewrite that function. After making the change, you'd want to run the auth tests to confirm nothing breaks. By the way, you might also want to look at your dependency versions overall. Hope this helps! Let me know if you want to dig deeper.
 
@@ -93,7 +66,7 @@ A skill for your coding assistant that stops it from burying the answer. Action 
 
 <td width="50%">
 
-## After
+### After
 
 > Edit `src/auth.ts:42` to update the token validation.
 >
@@ -107,14 +80,13 @@ A skill for your coding assistant that stops it from burying the answer. Action 
 </tr>
 </table>
 
-
 ## The rules
 
 10 rules. Full text in [SKILL.md](./skills/i-have-adhd/SKILL.md).
 
 1. Lead with the next action.
 2. Number multi-step tasks.
-3. End with one concrete next step.
+3. End with one concrete next action.
 4. Suppress tangents.
 5. Restate state every turn.
 6. Specific time estimates (minutes, not "a bit").
@@ -123,25 +95,22 @@ A skill for your coding assistant that stops it from burying the answer. Action 
 9. Cap lists to 5 items.
 10. No preamble. No recap. No closers.
 
-## Tune it
+## Install
 
-Fork, edit `skills/i-have-adhd/SKILL.md`, then swap your copy in:
+Copy/paste into your CLI prompt:
 
-```bash
-claude plugin uninstall i-have-adhd            # drop the upstream copy first:
-claude plugin marketplace remove i-have-adhd   # fork and upstream share both names
-claude plugin marketplace add <your-username>/i-have-adhd
-claude plugin install i-have-adhd@<your-marketplace>
+```text
+Install the i-have-adhd skill/plugin from https://github.com/flyingnobita/i-have-adhd, refer to the repo's AGENTS.md for instructions.
 ```
 
-Restart your coding assistant, then re-invoke `/i-have-adhd`.
+Uninstall upstream first: both use the skill name `i-have-adhd`, and colliding files produce duplicate `/i-have-adhd` commands. Always-on in Claude Code and Codex needs Node.js. [INSTALL.md](INSTALL.md) has the steps for each supported agent, the upstream removal commands, Codex hook trust, flag paths, and updates.
 
 ## Credits
 
-Loosely based on *The Adult ADHD Tool Kit* by J. Russell Ramsay and Anthony L. Rostain. Adapted for how an LLM should respond, not how a human should organize their day.
+Original skill by Ayoub G. ([ayghri/i-have-adhd](https://github.com/ayghri/i-have-adhd)). Loosely based on *The Adult ADHD Tool Kit* by J. Russell Ramsay and Anthony L. Rostain. Adapted for how an LLM should respond, not how a human should organize their day.
+
+[Kacper Rutkiewicz | AI Made Simple](https://youtu.be/NEl8kPWZP_Y) has made a good breakdown of an earlier version of the skill.
 
 ## License
 
 [MIT](LICENSE).
-
-Star ⭐ if it saved you one scroll past one "Great question!"

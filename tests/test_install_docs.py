@@ -80,7 +80,8 @@ class ForkInstallDocsTest(unittest.TestCase):
         )
 
         self.assertIn("## Why this fork exists", readme)
-        self.assertIn("Original README (upstream ayghri/i-have-adhd)", readme)
+        self.assertIn("https://github.com/ayghri/i-have-adhd", readme)
+        self.assertNotIn("## Original README", readme)
         self.assertIn("| Agent | Human | Non-human | Unclear |", readme)
         for row in (
             "| Claude | `CLAUDE_CODE_SESSION_ATTENDED=1` | `CLAUDE_CODE_SESSION_ATTENDED=0` | unset or malformed |",
