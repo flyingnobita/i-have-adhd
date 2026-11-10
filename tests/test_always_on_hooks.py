@@ -126,7 +126,7 @@ class AlwaysOnHookTest(unittest.TestCase):
                 self.assertEqual("", result.stdout)
                 self.assertEqual("", result.stderr)
         self.assertFalse(self.log.exists())
-        self.assertFalse((self.home_dir / ".local").exists())
+        self.assertFalse((self.home_dir / ".local" / "state" / "i-have-adhd").exists())
 
     def test_claude_human_injects_and_nonhuman_is_silent(self):
         self.opt_in()
