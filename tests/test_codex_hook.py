@@ -138,6 +138,15 @@ class CodexHookTest(unittest.TestCase):
         self.assertEqual(0, result.returncode, result.stderr)
         self.assertEqual(b"", result.stdout)
 
+    def test_codex_global_flags_exec_is_silent(self):
+        self.opt_in()
+        self.fake_ps("1 codex --yolo exec do the thing")
+
+        result = self.run_hook()
+
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual(b"", result.stdout)
+
     def test_codex_unclear_returns_only_system_message(self):
         self.opt_in()
         self.fake_ps("1 /bin/zsh -l")

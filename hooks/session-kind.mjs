@@ -35,12 +35,53 @@ function classifyClaude(env) {
   });
 }
 
+const CODEX_VALUE_FLAGS = new Set([
+  "-c",
+  "--config",
+  "--enable",
+  "--disable",
+  "--remote",
+  "-m",
+  "--model",
+  "-p",
+  "--profile",
+  "-s",
+  "--sandbox",
+  "-a",
+  "--ask-for-approval",
+  "-C",
+  "--cd",
+  "-i",
+  "--image",
+  "--add-dir",
+  "--remote-auth-token-env",
+]);
+
 function codexParent(parent) {
   if (!Array.isArray(parent) || parent.length === 0) return null;
   const executable = typeof parent[0] === "string" ? parent[0] : "";
   const name = path.basename(executable).replace(/\.(?:exe|cmd)$/i, "").toLowerCase();
   if (name !== "codex") return null;
-  return typeof parent[1] === "string" ? parent[1] : "";
+
+  let i = 1;
+  while (i < parent.length) {
+    const token = parent[i];
+    if (typeof token !== "string") return "";
+    if (token === "--") {
+      i += 1;
+      break;
+    }
+    if (token.startsWith("-")) {
+      if (CODEX_VALUE_FLAGS.has(token)) {
+        i += 2;
+      } else {
+        i += 1;
+      }
+      continue;
+    }
+    return token;
+  }
+  return typeof parent[i] === "string" ? parent[i] : "";
 }
 
 function classifyCodex(parent) {

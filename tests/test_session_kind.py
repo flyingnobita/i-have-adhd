@@ -92,6 +92,21 @@ class SessionKindTest(unittest.TestCase):
             "unclear", self.classify(agent="codex", parent=None)["decision"]
         )
 
+    def test_codex_global_flags_before_subcommand(self):
+        cases = [
+            (["codex", "--yolo", "exec", "do", "the", "thing"], "non-human"),
+            (["codex", "-c", "k=v", "exec", "do", "the", "thing"], "non-human"),
+            (["codex", "--config=k=v", "exec"], "non-human"),
+            (["codex", "--enable", "x", "app-server", "--managed-daemon"], "human"),
+            (["codex", "--yolo", "app-server"], "unclear"),
+            (["codex", "--yolo"], "unclear"),
+            (["codex", "-c"], "unclear"),
+        ]
+        for parent, expected in cases:
+            with self.subTest(parent=parent):
+                result = self.classify(agent="codex", parent=parent)
+                self.assertEqual(expected, result["decision"])
+
     def test_pi_mode_mapping(self):
         for mode, decision in {"tui": "human", "print": "non-human", "json": "non-human", "rpc": "unclear"}.items():
             with self.subTest(mode=mode):
