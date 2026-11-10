@@ -27,13 +27,26 @@ class OpenCodePluginTest(unittest.TestCase):
         self.plugin_root = Path(self.temp_dir.name).resolve() / "plugin"
         shutil.copytree(ROOT / ".opencode", self.plugin_root / ".opencode")
         shutil.copytree(ROOT / "skills", self.plugin_root / "skills")
+        shutil.copytree(ROOT / "hooks", self.plugin_root / "hooks")
         # The plugin reads its flag from $XDG_CONFIG_HOME/opencode/.i-have-adhd-always.
         self.config_dir = Path(self.temp_dir.name) / "config"
         (self.config_dir / "opencode").mkdir(parents=True)
+        self.home_dir = Path(self.temp_dir.name) / "home"
+        self.home_dir.mkdir()
+        self.log = self.home_dir / ".local" / "state" / "i-have-adhd" / "decisions.log"
 
-    def run_plugin(self, mode=None, config=None):
+    def run_plugin(self, mode=None, options=None, extra_env=None):
         env = os.environ.copy()
-        env["XDG_CONFIG_HOME"] = str(self.config_dir)
+        for key in ("I_HAVE_ADHD", "I_HAVE_ADHD_LOG"):
+            env.pop(key, None)
+        env.update(
+            {
+                "HOME": str(self.home_dir),
+                "XDG_CONFIG_HOME": str(self.config_dir),
+                "XDG_STATE_HOME": str(self.home_dir / "state"),
+            }
+        )
+        env.update(extra_env or {})
         args = [
             "node",
             str(ROOT / "tests" / "opencode_plugin_driver.mjs"),
@@ -41,8 +54,8 @@ class OpenCodePluginTest(unittest.TestCase):
         ]
         if mode:
             args.append(mode)
-        if config is not None:
-            args.append(json.dumps(config))
+        if options is not None:
+            args.append(json.dumps(options))
         return subprocess.run(
             args,
             check=False,
@@ -50,6 +63,14 @@ class OpenCodePluginTest(unittest.TestCase):
             text=True,
             env=env,
         )
+
+    def context(self, mode, **options):
+        result = self.run_plugin(mode, options or None)
+        self.assertEqual(0, result.returncode, result.stderr)
+        if result.stdout == "":
+            return {"system": "", "toasts": []}
+        payload = json.loads(result.stdout)
+        return {"system": payload["system"], "toasts": payload["toasts"]}
 
     def opt_in(self):
         (self.config_dir / "opencode" / ".i-have-adhd-always").touch()
@@ -65,40 +86,66 @@ class OpenCodePluginTest(unittest.TestCase):
                 result = self.run_plugin(mode)
                 self.assertEqual(0, result.returncode, result.stderr)
                 self.assertEqual("", result.stdout)
+        self.assertFalse(self.log.exists())
+        self.assertFalse((self.home_dir / ".local").exists())
+
+    def test_top_level_sessions_inject_and_v1_shows_assumed_human_toast(self):
+        self.opt_in()
+
+        v2 = self.context("context")
+        self.assertIn("ADHD MODE ACTIVE (always-on)", v2["system"])
+        self.assertIn("Working memory is small", v2["system"])
+        self.assertEqual([], v2["toasts"], "V2 has no toast call")
+
+        v1 = self.context("v1-context")
+        self.assertEqual(v2["system"], v1["system"])
+        self.assertEqual(1, len(v1["toasts"]))
+        self.assertIn("assumed human", v1["toasts"][0])
+
+    def test_subagent_parent_id_skips_injection_and_toast(self):
+        self.opt_in()
+        for mode in INJECTION_MODES:
+            with self.subTest(mode=mode):
+                result = self.context(mode, parentID="ses_parent")
+                self.assertEqual("", result["system"])
+                self.assertEqual([], result["toasts"])
+
+    def test_opt_out_wins_over_top_level_assumption(self):
+        self.opt_in()
+        for mode in INJECTION_MODES:
+            with self.subTest(mode=mode):
+                result = self.run_plugin(mode, extra_env={"I_HAVE_ADHD": "0"})
+                self.assertEqual(0, result.returncode, result.stderr)
+                self.assertEqual("", result.stdout)
 
     def test_injects_ruleset_when_opted_in(self):
         self.opt_in()
         for mode in INJECTION_MODES:
             with self.subTest(mode=mode):
-                result = self.run_plugin(mode)
-                self.assertEqual(0, result.returncode, result.stderr)
-                self.assertIn("ADHD MODE ACTIVE (always-on)", result.stdout)
-                self.assertIn("Working memory is small", result.stdout)
+                result = self.context(mode)
+                self.assertIn("ADHD MODE ACTIVE (always-on)", result["system"])
+                self.assertIn("Working memory is small", result["system"])
 
     def test_strips_frontmatter_with_trailing_whitespace(self):
         self.write_skill("---   \nname: fixture\n--- \t\nFixture body.\n")
         self.opt_in()
         for mode in INJECTION_MODES:
             with self.subTest(mode=mode):
-                result = self.run_plugin(mode)
-                self.assertEqual(0, result.returncode, result.stderr)
-                self.assertNotIn("name: fixture", result.stdout)
-                self.assertIn("\n\nFixture body.", result.stdout)
+                result = self.context(mode)
+                self.assertNotIn("name: fixture", result["system"])
+                self.assertIn("\n\nFixture body.", result["system"])
 
     def test_keeps_content_when_frontmatter_is_unclosed(self):
         self.write_skill("---\nname: fixture\nFixture body, fence never closed.\n")
         self.opt_in()
         for mode in INJECTION_MODES:
             with self.subTest(mode=mode):
-                result = self.run_plugin(mode)
-                self.assertEqual(0, result.returncode, result.stderr)
-                self.assertIn("Fixture body, fence never closed.", result.stdout)
+                result = self.context(mode)
+                self.assertIn("Fixture body, fence never closed.", result["system"])
 
     def test_both_apis_share_the_same_injected_text(self):
         self.opt_in()
-        v2 = self.run_plugin("context").stdout
-        v1 = self.run_plugin("v1-context").stdout
-        self.assertEqual(v2, v1)
+        self.assertEqual(self.context("context")["system"], self.context("v1-context")["system"])
 
     # --- V2 registration ---
 

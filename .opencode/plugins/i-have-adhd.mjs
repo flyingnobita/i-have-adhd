@@ -5,6 +5,10 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  classifySession,
+  logDecision,
+} from '../../hooks/session-kind.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const skillsDir = path.resolve(__dirname, '../../skills');
@@ -12,6 +16,7 @@ const skillPath = path.join(skillsDir, 'i-have-adhd', 'SKILL.md');
 const commandPath = path.join(__dirname, '..', 'command', 'i-have-adhd.md');
 
 const SKILL_ID = 'i-have-adhd';
+const ASSUMED_HUMAN_TOAST = 'i-have-adhd: assumed human; rules loaded.';
 const FALLBACK_DESCRIPTION =
   'Shape output for a reader with ADHD: lead with the next action, number ' +
   'multi-step work, restate state across turns, suppress tangents, give ' +
@@ -37,6 +42,17 @@ function rulesetBody() {
     .readFileSync(skillPath, 'utf8')
     .replace(/^---[^\S\r\n]*\r?\n[\s\S]*?\r?\n---[^\S\r\n]*(?:\r?\n|$)/, '')
     .replace(/(?:\r?\n)+$/, '');
+}
+
+// Only runs after the flag opt-in; OpenCode has no human/non-human signal, so a
+// top-level session is assumed human and any child session (parentID) is not.
+function sessionDecision(value) {
+  const decision = classifySession({
+    agent: 'opencode',
+    ctx: { parentID: value?.parentID },
+  });
+  logDecision({ agent: 'opencode', ...decision, flagPath });
+  return decision;
 }
 
 function alwaysOnInjection() {
@@ -95,6 +111,7 @@ export default {
       await ctx.session.hook('context', (event) => {
         const injected = alwaysOnInjection();
         if (!injected) return;
+        if (sessionDecision(event).decision !== 'human') return;
         event.system.push({ type: 'text', text: injected });
       });
     } catch {
@@ -102,7 +119,7 @@ export default {
     }
   },
 
-  async server() {
+  async server(plugin = {}) {
     return {
       config: async (config) => {
         config.skills = config.skills || {};
@@ -120,14 +137,23 @@ export default {
         }
       },
 
-      'experimental.chat.system.transform': async (_input, output) => {
+      'experimental.chat.system.transform': async (input, output) => {
         const injected = alwaysOnInjection();
         if (!injected) return;
+        if (sessionDecision(input).decision !== 'human') return;
 
         if (output.system.length > 0) {
           output.system[output.system.length - 1] += '\n\n' + injected;
         } else {
           output.system.push(injected);
+        }
+
+        try {
+          await plugin?.client?.tui?.showToast?.({
+            body: { message: ASSUMED_HUMAN_TOAST, variant: 'info' },
+          });
+        } catch {
+          // V2 and older V1 releases have no toast API; injection still stands.
         }
       },
     };

@@ -1,15 +1,19 @@
-// Usage: node driver.mjs <plugin> <skill|command|context|v1-config|v1-context> [config]
-// Print registrations as JSON, or the injected system text for context modes.
+// Usage: node driver.mjs <plugin> <skill|command|context|v1-config|v1-context> [options]
+// Print registrations as JSON. Context modes print {system, toasts} when either
+// is non-empty; `options` is {parentID} for context modes, a config object for
+// v1-config.
 import { pathToFileURL } from 'node:url';
 
 const pluginPath = process.argv[2];
 const mode = process.argv[3];
+const options = process.argv[4] ? JSON.parse(process.argv[4]) : undefined;
 const { default: definition } = await import(pathToFileURL(pluginPath).href);
 
 const skills = new Map();
 const commands = new Map();
 const hooks = new Map();
 const prompts = [];
+const toasts = [];
 
 const editorFor = (store) => ({
   get: (id) => store.get(id),
@@ -40,19 +44,35 @@ const v2ctx = {
   },
 };
 
+// V1 plugins receive the OpenCode client; the toast path is optional.
+const v1ctx = {
+  client: {
+    tui: {
+      showToast: async ({ body }) => {
+        toasts.push(body?.message);
+      },
+    },
+  },
+};
+
 const joined = (event) => event.system.map((part) => part.text ?? String(part)).join('\n---SEP---\n');
 
+const emitContext = (system) => {
+  if (!system && toasts.length === 0) return;
+  process.stdout.write(JSON.stringify({ system, toasts }));
+};
+
 if (mode === 'v1-config' || mode === 'v1-context') {
-  const v1 = await definition.server();
+  const v1 = await definition.server(v1ctx);
   if (mode === 'v1-config') {
-    const config = JSON.parse(process.argv[4] || '{}');
+    const config = options || {};
     await v1.config(config);
     await v1.config(config);
     process.stdout.write(JSON.stringify(config));
   } else {
     const output = { system: [] };
-    await v1['experimental.chat.system.transform']({}, output);
-    process.stdout.write(output.system.join('\n---SEP---\n'));
+    await v1['experimental.chat.system.transform'](options || {}, output);
+    emitContext(output.system.join('\n---SEP---\n'));
   }
 } else {
   await definition.setup(v2ctx);
@@ -73,8 +93,8 @@ if (mode === 'v1-config' || mode === 'v1-context') {
   } else {
     const handler = hooks.get('context');
     if (!handler) process.exit(0);
-    const event = { system: [] };
+    const event = { system: [], ...(options || {}) };
     await handler(event);
-    process.stdout.write(joined(event));
+    emitContext(joined(event));
   }
 }
