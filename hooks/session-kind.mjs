@@ -92,7 +92,7 @@ const CODEX_SUBCOMMANDS = new Set([
 function codexParent(parent) {
   if (!Array.isArray(parent) || parent.length === 0) return null;
   const executable = typeof parent[0] === "string" ? parent[0] : "";
-  const name = path.basename(executable).replace(/\.(?:exe|cmd)$/i, "").toLowerCase();
+  const name = path.basename(executable.replace(/\\/g, "/")).replace(/\.(?:exe|cmd)$/i, "").toLowerCase();
   if (name !== "codex") return null;
 
   let i = 1;
@@ -315,7 +315,7 @@ function parseProcessOutputs(comm, argsOutput) {
   return { ppid, argv: fullArgs.split(/\s+/) };
 }
 
-function parseWin32Process(output) {
+export function parseWin32Process(output) {
   if (!output) return null;
   const parts = output.trim().split("\t");
   if (parts.length < 3) return null;
@@ -338,7 +338,8 @@ function parseWin32Process(output) {
     return { ppid, argv: [execPath, ...(rest ? rest.split(/\s+/) : [])] };
   }
 
-  return { ppid, argv: [execPath, ...(cmdLine ? cmdLine.split(/\s+/) : [])] };
+  const tokens = cmdLine ? cmdLine.split(/\s+/) : [];
+  return { ppid, argv: [execPath, ...(tokens.length > 0 ? tokens.slice(1) : [])] };
 }
 
 function readProcess(pid) {
@@ -387,7 +388,7 @@ export function parentArgv(startPid = process.ppid) {
     seen.add(pid);
     const info = readProcess(pid);
     if (!info) return null;
-    if (path.basename(info.argv[0] || "").replace(/\.(?:exe|cmd)$/i, "").toLowerCase() === "codex") {
+    if (path.basename((info.argv[0] || "").replace(/\\/g, "/")).replace(/\.(?:exe|cmd)$/i, "").toLowerCase() === "codex") {
       return info.argv;
     }
     pid = info.ppid;

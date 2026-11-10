@@ -125,6 +125,16 @@ class SessionKindTest(unittest.TestCase):
                 result = self.classify(agent="codex", parent=parent)
                 self.assertEqual(expected, result["decision"])
 
+    def test_win32_process_fallback_drops_executable_token(self):
+        output = "1234\tC:\\Program Files\\codex\\codex.exe\tcodex app-server --managed-daemon"
+        parsed = self.call("parseWin32Process", output)
+        self.assertEqual(
+            ["C:\\Program Files\\codex\\codex.exe", "app-server", "--managed-daemon"],
+            parsed["argv"],
+        )
+        result = self.classify(agent="codex", parent=parsed["argv"])
+        self.assertEqual("human", result["decision"])
+
     def test_pi_mode_mapping(self):
         for mode, decision in {"tui": "human", "print": "non-human", "json": "non-human", "rpc": "unclear"}.items():
             with self.subTest(mode=mode):
