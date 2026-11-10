@@ -84,7 +84,11 @@ const v2ctx = {
       prompts.push(input);
     },
     get: options?.noClient ? undefined : async ({ sessionID }) => {
-      return handleSessionLookup(sessionID);
+      const res = await handleSessionLookup(sessionID);
+      if (res && typeof res === 'object' && 'data' in res && !('id' in res)) {
+        return res.data;
+      }
+      return res;
     },
   },
   event: {
@@ -107,6 +111,10 @@ const v1ctx = {
       get: async (req) => {
         const id = req?.path?.id || req?.sessionID || req?.id;
         const res = await handleSessionLookup(id);
+        if (res === null || res === undefined) return res;
+        if (typeof res === 'object' && ('data' in res || 'error' in res || Object.keys(res).length === 0)) {
+          return res;
+        }
         return { data: res };
       },
     },

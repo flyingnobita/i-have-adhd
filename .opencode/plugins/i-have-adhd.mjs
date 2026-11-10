@@ -47,37 +47,61 @@ function rulesetBody() {
 const sessionCache = new Map();
 let missingSessionLogged = false;
 
+function extractSession(res) {
+  if (!res || typeof res !== 'object') return null;
+  if (res.error !== undefined) return null;
+
+  if (res.data !== undefined) {
+    const data = res.data;
+    if (data && typeof data === 'object' && typeof data.id === 'string') {
+      return data;
+    }
+    return null;
+  }
+
+  if (typeof res.id === 'string') {
+    return res;
+  }
+  return null;
+}
+
 async function lookupSessionParent(sessionID, clientOrCtx, runtime) {
   if (!clientOrCtx) {
     return { error: true, parentID: null };
   }
   try {
-    let res;
+    let session = null;
     if (runtime === 'v2') {
       if (typeof clientOrCtx?.session?.get !== 'function') {
         return { error: true, parentID: null };
       }
-      res = await clientOrCtx.session.get({ sessionID });
+      const res = await clientOrCtx.session.get({ sessionID });
+      session = extractSession(res);
     } else {
       const sessionApi = clientOrCtx?.session;
       if (typeof sessionApi?.get !== 'function') {
         return { error: true, parentID: null };
       }
-      try {
-        res = await sessionApi.get({ path: { id: sessionID } });
-      } catch {
+      const tryGet = async (req) => {
         try {
-          res = await sessionApi.get({ sessionID });
+          const res = await sessionApi.get(req);
+          return extractSession(res);
         } catch {
-          res = await sessionApi.get({ id: sessionID });
+          return null;
         }
+      };
+      session = await tryGet({ path: { id: sessionID } });
+      if (!session) {
+        session = await tryGet({ sessionID });
+      }
+      if (!session) {
+        session = await tryGet({ id: sessionID });
       }
     }
-    const data = res?.data ?? res;
-    if (!data || typeof data !== 'object') {
+    if (!session) {
       return { error: true, parentID: null };
     }
-    const parentID = data.parentID ?? data.parent_id ?? null;
+    const parentID = session.parentID ?? session.parent_id ?? null;
     return { error: false, parentID };
   } catch {
     return { error: true, parentID: null };

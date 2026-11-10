@@ -1,5 +1,6 @@
 # Changelog
 
+- Nov-10, 2026 - 05:25 PM +08 - Fail closed as unclear when OpenCode V1 session lookup returns an error object without data.
 - Nov-10, 2026 - 05:20 PM +08 - Add support for Codex --local-provider and multi-value -i/--image flags in parent process classification.
 - Nov-10, 2026 - 05:15 PM +08 - Isolate process executable path from command line arguments when identifying Codex parents.
 - Nov-10, 2026 - 05:10 PM +08 - Evict OpenCode session cache entry when session.deleted event is received.

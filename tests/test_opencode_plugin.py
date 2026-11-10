@@ -64,12 +64,12 @@ class OpenCodePluginTest(unittest.TestCase):
             env=env,
         )
 
-    def context(self, mode, **options):
+    def context(self, mode, extra_env=None, **options):
         if "sessionID" not in options:
             options["sessionID"] = "ses_default"
         elif options["sessionID"] is None:
             del options["sessionID"]
-        result = self.run_plugin(mode, options or None)
+        result = self.run_plugin(mode, options or None, extra_env=extra_env)
         self.assertEqual(0, result.returncode, result.stderr)
         if result.stdout == "":
             return {"system": "", "toasts": [], "lookups": 0}
@@ -207,6 +207,53 @@ class OpenCodePluginTest(unittest.TestCase):
                 )
                 self.assertEqual("", result["system"])
                 self.assertEqual([], result["toasts"])
+
+    def test_v1_session_get_resolving_error_fails_closed_as_unclear(self):
+        self.opt_in()
+        if self.log.exists():
+            self.log.unlink()
+        res = self.context(
+            "v1-context",
+            sessionID="ses_v1_err_obj",
+            sessions={"ses_v1_err_obj": {"error": {"message": "Not found"}}},
+            extra_env={"I_HAVE_ADHD_LOG": "1"},
+        )
+        self.assertEqual("", res["system"])
+        self.assertEqual([], res["toasts"])
+        self.assertTrue(self.log.exists())
+        log_lines = self.log.read_text().strip().splitlines()
+        self.assertEqual(1, len(log_lines))
+        entry = json.loads(log_lines[0])
+        self.assertEqual("skipped-unclear", entry["result"])
+        self.assertEqual("unknown", entry["signals"]["parentId"])
+
+    def test_v1_session_get_shapes_resolution(self):
+        self.opt_in()
+        sub_res = self.context(
+            "v1-context",
+            sessionID="ses_wrapped_child",
+            sessions={"ses_wrapped_child": {"data": {"id": "ses_wrapped_child", "parentID": "ses_parent"}}},
+        )
+        self.assertEqual("", sub_res["system"])
+        self.assertEqual([], sub_res["toasts"])
+
+        top_res = self.context(
+            "v1-context",
+            sessionID="ses_wrapped_top",
+            sessions={"ses_wrapped_top": {"data": {"id": "ses_wrapped_top"}}},
+        )
+        self.assertIn("ADHD MODE ACTIVE", top_res["system"])
+        self.assertEqual(1, len(top_res["toasts"]))
+
+        for invalid_session in ({}, None):
+            with self.subTest(invalid=invalid_session):
+                invalid_res = self.context(
+                    "v1-context",
+                    sessionID="ses_invalid",
+                    sessions={"ses_invalid": invalid_session},
+                )
+                self.assertEqual("", invalid_res["system"])
+                self.assertEqual([], invalid_res["toasts"])
 
     def test_lookup_runs_once_per_session_id_across_repeated_transforms(self):
         self.opt_in()
