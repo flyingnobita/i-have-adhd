@@ -65,20 +65,32 @@ class OpenCodePluginTest(unittest.TestCase):
         )
 
     def context(self, mode, **options):
+        if "sessionID" not in options:
+            options["sessionID"] = "ses_default"
+        elif options["sessionID"] is None:
+            del options["sessionID"]
         result = self.run_plugin(mode, options or None)
         self.assertEqual(0, result.returncode, result.stderr)
         if result.stdout == "":
-            return {"system": "", "toasts": []}
+            return {"system": "", "toasts": [], "lookups": 0}
         payload = json.loads(result.stdout)
-        return {"system": payload["system"], "toasts": payload["toasts"]}
+        return {
+            "system": payload.get("system", ""),
+            "toasts": payload.get("toasts", []),
+            "lookups": payload.get("lookups", 0),
+        }
 
     def contexts(self, mode, calls, extra_env=None):
         result = self.run_plugin(mode, calls, extra_env=extra_env)
         self.assertEqual(0, result.returncode, result.stderr)
         if result.stdout == "":
-            return {"systems": [], "toasts": []}
+            return {"systems": [], "toasts": [], "lookups": 0}
         payload = json.loads(result.stdout)
-        return {"systems": payload.get("systems", []), "toasts": payload.get("toasts", [])}
+        return {
+            "systems": payload.get("systems", []),
+            "toasts": payload.get("toasts", []),
+            "lookups": payload.get("lookups", 0),
+        }
 
     def opt_in(self):
         (self.config_dir / "opencode" / ".i-have-adhd-always").touch()
@@ -171,6 +183,42 @@ class OpenCodePluginTest(unittest.TestCase):
                 result = self.context(mode, parentID="ses_parent")
                 self.assertEqual("", result["system"])
                 self.assertEqual([], result["toasts"])
+
+    def test_subagent_session_lookup_skips_injection_and_toast(self):
+        self.opt_in()
+        for mode in INJECTION_MODES:
+            with self.subTest(mode=mode):
+                result = self.context(
+                    mode,
+                    sessionID="ses_child",
+                    sessions={"ses_child": {"id": "ses_child", "parentID": "ses_parent"}},
+                )
+                self.assertEqual("", result["system"])
+                self.assertEqual([], result["toasts"])
+
+    def test_lookup_error_fails_closed_as_unclear(self):
+        self.opt_in()
+        for mode in INJECTION_MODES:
+            with self.subTest(mode=mode):
+                result = self.context(
+                    mode,
+                    sessionID="ses_err",
+                    failLookup=True,
+                )
+                self.assertEqual("", result["system"])
+                self.assertEqual([], result["toasts"])
+
+    def test_lookup_runs_once_per_session_id_across_repeated_transforms(self):
+        self.opt_in()
+        res = self.contexts(
+            "v1-context",
+            [{"sessionID": "ses_repeat_lookup"}, {"sessionID": "ses_repeat_lookup"}],
+            extra_env={"I_HAVE_ADHD_LOG": "1"},
+        )
+        self.assertEqual(2, len(res["systems"]))
+        self.assertIn("ADHD MODE ACTIVE", res["systems"][0])
+        self.assertIn("ADHD MODE ACTIVE", res["systems"][1])
+        self.assertEqual(1, res.get("lookups"))
 
     def test_opt_out_wins_over_top_level_assumption(self):
         self.opt_in()

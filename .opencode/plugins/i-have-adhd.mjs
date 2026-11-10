@@ -46,10 +46,47 @@ function rulesetBody() {
 
 const sessionCache = new Map();
 
+async function lookupSessionParent(sessionID, clientOrCtx, runtime) {
+  if (!clientOrCtx) {
+    return { error: true, parentID: null };
+  }
+  try {
+    let res;
+    if (runtime === 'v2') {
+      if (typeof clientOrCtx?.session?.get !== 'function') {
+        return { error: true, parentID: null };
+      }
+      res = await clientOrCtx.session.get({ sessionID });
+    } else {
+      const sessionApi = clientOrCtx?.session;
+      if (typeof sessionApi?.get !== 'function') {
+        return { error: true, parentID: null };
+      }
+      try {
+        res = await sessionApi.get({ path: { id: sessionID } });
+      } catch {
+        try {
+          res = await sessionApi.get({ sessionID });
+        } catch {
+          res = await sessionApi.get({ id: sessionID });
+        }
+      }
+    }
+    const data = res?.data ?? res;
+    if (!data || typeof data !== 'object') {
+      return { error: true, parentID: null };
+    }
+    const parentID = data.parentID ?? data.parent_id ?? null;
+    return { error: false, parentID };
+  } catch {
+    return { error: true, parentID: null };
+  }
+}
+
 // Only runs after the flag opt-in; OpenCode has no human/non-human signal, so a
 // top-level session is assumed human and any child session (parentID) is not.
 // Decisions, logs, and toasts are cached per session ID.
-function sessionEntry(value) {
+async function sessionEntry(value, clientOrCtx, runtime) {
   const sessionID =
     typeof value?.sessionID === 'string' && value.sessionID
       ? value.sessionID
@@ -61,10 +98,37 @@ function sessionEntry(value) {
     return sessionCache.get(sessionID);
   }
 
-  const decision = classifySession({
-    agent: 'opencode',
-    ctx: { parentID: value?.parentID },
-  });
+  const directParentID =
+    typeof value?.parentID === 'string' && value.parentID
+      ? value.parentID
+      : null;
+
+  let decision;
+  if (directParentID) {
+    decision = classifySession({
+      agent: 'opencode',
+      ctx: { parentID: directParentID },
+    });
+  } else if (sessionID) {
+    const lookup = await lookupSessionParent(sessionID, clientOrCtx, runtime);
+    if (lookup.error) {
+      decision = {
+        decision: 'unclear',
+        reason: 'opencode-lookup-failed',
+        signals: { parentId: 'unknown' },
+      };
+    } else {
+      decision = classifySession({
+        agent: 'opencode',
+        ctx: { parentID: lookup.parentID },
+      });
+    }
+  } else {
+    decision = classifySession({
+      agent: 'opencode',
+      ctx: { parentID: value?.parentID },
+    });
+  }
 
   const entry = { decision, toasted: false };
   if (sessionID) {
@@ -78,10 +142,6 @@ function sessionEntry(value) {
   }
 
   return entry;
-}
-
-function sessionDecision(value) {
-  return sessionEntry(value).decision;
 }
 
 function alwaysOnInjection() {
@@ -137,10 +197,11 @@ export default {
     }
 
     try {
-      await ctx.session.hook('context', (event) => {
+      await ctx.session.hook('context', async (event) => {
         const injected = alwaysOnInjection();
         if (!injected) return;
-        if (sessionDecision(event).decision !== 'human') return;
+        const entry = await sessionEntry(event, ctx, 'v2');
+        if (entry.decision.decision !== 'human') return;
         event.system.push({ type: 'text', text: injected });
       });
     } catch {
@@ -170,7 +231,7 @@ export default {
         const injected = alwaysOnInjection();
         if (!injected) return;
 
-        const entry = sessionEntry(input);
+        const entry = await sessionEntry(input, plugin?.client, 'v1');
         if (entry.decision.decision !== 'human') return;
 
         if (output.system.length > 0) {

@@ -20,6 +20,48 @@ const editorFor = (store) => ({
   add: (entry) => store.set(entry.id ?? entry.name, entry),
 });
 
+let lookups = 0;
+const sessionStore = new Map();
+const eventSubscribers = [];
+
+const seedSession = (s) => {
+  if (s && typeof s === 'object' && s.sessionID) {
+    if (!sessionStore.has(s.sessionID)) {
+      sessionStore.set(s.sessionID, { id: s.sessionID, parentID: s.parentID });
+    }
+  }
+};
+
+const callsList = Array.isArray(options)
+  ? options
+  : Array.isArray(options?.calls)
+    ? options.calls
+    : [options || {}];
+
+if (options?.sessions && typeof options.sessions === 'object') {
+  for (const [id, s] of Object.entries(options.sessions)) {
+    sessionStore.set(id, s);
+  }
+}
+for (const call of callsList) {
+  seedSession(call);
+}
+
+const handleSessionLookup = async (sessionID) => {
+  lookups += 1;
+  if (options?.failLookup) {
+    throw new Error('Simulated lookup error');
+  }
+  if (sessionStore.has(sessionID)) {
+    const s = sessionStore.get(sessionID);
+    if (s === '__ERROR__') {
+      throw new Error('Simulated session error');
+    }
+    return s;
+  }
+  return { id: sessionID };
+};
+
 const v2ctx = {
   skill: {
     transform: async (cb) => {
@@ -41,6 +83,15 @@ const v2ctx = {
     prompt: async (input) => {
       prompts.push(input);
     },
+    get: options?.noClient ? undefined : async ({ sessionID }) => {
+      return handleSessionLookup(sessionID);
+    },
+  },
+  event: {
+    subscribe: (handler) => {
+      eventSubscribers.push(handler);
+      return { dispose: () => {} };
+    },
   },
 };
 
@@ -52,14 +103,21 @@ const v1ctx = {
         toasts.push(body?.message);
       },
     },
+    session: options?.noClient ? undefined : {
+      get: async (req) => {
+        const id = req?.path?.id || req?.sessionID || req?.id;
+        const res = await handleSessionLookup(id);
+        return { data: res };
+      },
+    },
   },
 };
 
 const joined = (event) => event.system.map((part) => part.text ?? String(part)).join('\n---SEP---\n');
 
 const emitContext = (system) => {
-  if (!system && toasts.length === 0) return;
-  process.stdout.write(JSON.stringify({ system, toasts }));
+  if (!system && toasts.length === 0 && lookups === 0) return;
+  process.stdout.write(JSON.stringify({ system, toasts, lookups }));
 };
 
 if (mode === 'v1-config' || mode === 'v1-context') {
@@ -69,16 +127,28 @@ if (mode === 'v1-config' || mode === 'v1-context') {
     await v1.config(config);
     await v1.config(config);
     process.stdout.write(JSON.stringify(config));
+  } else if (options?.steps) {
+    const systems = [];
+    for (const step of options.steps) {
+      if (step.type === 'event') {
+        if (v1?.event) await v1.event({ event: step.event });
+      } else {
+        const output = { system: [] };
+        await v1['experimental.chat.system.transform'](step.call || {}, output);
+        systems.push(output.system.join('\n---SEP---\n'));
+      }
+    }
+    process.stdout.write(JSON.stringify({ systems, system: systems[systems.length - 1], toasts, lookups }));
   } else {
-    const calls = Array.isArray(options) ? options : [options || {}];
+    const calls = Array.isArray(options) ? options : Array.isArray(options?.calls) ? options.calls : [options || {}];
     const systems = [];
     for (const call of calls) {
       const output = { system: [] };
       await v1['experimental.chat.system.transform'](call, output);
       systems.push(output.system.join('\n---SEP---\n'));
     }
-    if (Array.isArray(options)) {
-      process.stdout.write(JSON.stringify({ systems, system: systems[systems.length - 1], toasts }));
+    if (Array.isArray(options) || Array.isArray(options?.calls)) {
+      process.stdout.write(JSON.stringify({ systems, system: systems[systems.length - 1], toasts, lookups }));
     } else {
       emitContext(systems[0]);
     }
@@ -99,18 +169,33 @@ if (mode === 'v1-config' || mode === 'v1-context') {
       out[0].template = prompts[prompts.length - 1]?.text;
     }
     process.stdout.write(JSON.stringify(out));
+  } else if (options?.steps) {
+    const handler = hooks.get('context');
+    const systems = [];
+    for (const step of options.steps) {
+      if (step.type === 'event') {
+        for (const sub of eventSubscribers) {
+          await sub(step.event);
+        }
+      } else if (handler) {
+        const event = { system: [], ...(step.call || {}) };
+        await handler(event);
+        systems.push(joined(event));
+      }
+    }
+    process.stdout.write(JSON.stringify({ systems, system: systems[systems.length - 1], toasts, lookups }));
   } else {
     const handler = hooks.get('context');
     if (!handler) process.exit(0);
-    const calls = Array.isArray(options) ? options : [options || {}];
+    const calls = Array.isArray(options) ? options : Array.isArray(options?.calls) ? options.calls : [options || {}];
     const systems = [];
     for (const call of calls) {
       const event = { system: [], ...call };
       await handler(event);
       systems.push(joined(event));
     }
-    if (Array.isArray(options)) {
-      process.stdout.write(JSON.stringify({ systems, system: systems[systems.length - 1], toasts }));
+    if (Array.isArray(options) || Array.isArray(options?.calls)) {
+      process.stdout.write(JSON.stringify({ systems, system: systems[systems.length - 1], toasts, lookups }));
     } else {
       emitContext(systems[0]);
     }
