@@ -205,6 +205,22 @@ export default {
     }
 
     try {
+      ctx.event?.subscribe?.((event) => {
+        if (event?.type === 'session.deleted') {
+          const id =
+            event?.properties?.sessionID ||
+            event?.properties?.id ||
+            event?.sessionID ||
+            event?.sessionId ||
+            event?.id;
+          if (id) sessionCache.delete(id);
+        }
+      });
+    } catch {
+      // Event subscription failure must not block plugin loading.
+    }
+
+    try {
       await ctx.session.hook('context', async (event) => {
         const injected = alwaysOnInjection();
         if (!injected) return;
@@ -219,6 +235,18 @@ export default {
 
   async server(plugin = {}) {
     return {
+      event: async ({ event }) => {
+        if (event?.type === 'session.deleted') {
+          const id =
+            event?.properties?.sessionID ||
+            event?.properties?.id ||
+            event?.sessionID ||
+            event?.sessionId ||
+            event?.id;
+          if (id) sessionCache.delete(id);
+        }
+      },
+
       config: async (config) => {
         config.skills = config.skills || {};
         config.skills.paths = config.skills.paths || [];

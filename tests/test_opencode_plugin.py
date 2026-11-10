@@ -242,6 +242,23 @@ class OpenCodePluginTest(unittest.TestCase):
                 self.assertEqual("skipped-unclear", entry["result"])
                 self.assertEqual("unknown", entry["signals"]["parentId"])
 
+    def test_session_deleted_evicts_cache_entry(self):
+        self.opt_in()
+        for mode in INJECTION_MODES:
+            with self.subTest(mode=mode):
+                steps = [
+                    {"type": "transform", "call": {"sessionID": "ses_evict"}},
+                    {"type": "event", "event": {"type": "session.deleted", "sessionID": "ses_evict"}},
+                    {"type": "transform", "call": {"sessionID": "ses_evict"}},
+                ]
+                res = self.run_plugin(mode, {"steps": steps})
+                self.assertEqual(0, res.returncode, res.stderr)
+                payload = json.loads(res.stdout)
+                self.assertEqual(2, len(payload["systems"]))
+                self.assertIn("ADHD MODE ACTIVE", payload["systems"][0])
+                self.assertIn("ADHD MODE ACTIVE", payload["systems"][1])
+                self.assertEqual(2, payload.get("lookups"))
+
     def test_opt_out_wins_over_top_level_assumption(self):
         self.opt_in()
         for mode in INJECTION_MODES:
