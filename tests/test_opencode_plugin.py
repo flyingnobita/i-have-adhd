@@ -72,6 +72,14 @@ class OpenCodePluginTest(unittest.TestCase):
         payload = json.loads(result.stdout)
         return {"system": payload["system"], "toasts": payload["toasts"]}
 
+    def contexts(self, mode, calls, extra_env=None):
+        result = self.run_plugin(mode, calls, extra_env=extra_env)
+        self.assertEqual(0, result.returncode, result.stderr)
+        if result.stdout == "":
+            return {"systems": [], "toasts": []}
+        payload = json.loads(result.stdout)
+        return {"systems": payload.get("systems", []), "toasts": payload.get("toasts", [])}
+
     def opt_in(self):
         (self.config_dir / "opencode" / ".i-have-adhd-always").touch()
 
@@ -101,6 +109,60 @@ class OpenCodePluginTest(unittest.TestCase):
         self.assertEqual(v2["system"], v1["system"])
         self.assertEqual(1, len(v1["toasts"]))
         self.assertIn("assumed human", v1["toasts"][0])
+
+    def test_repeated_transforms_in_same_session_toast_and_log_once(self):
+        self.opt_in()
+        res = self.contexts(
+            "v1-context",
+            [{"sessionID": "ses_repeat"}, {"sessionID": "ses_repeat"}],
+            extra_env={"I_HAVE_ADHD_LOG": "1"},
+        )
+        self.assertEqual(2, len(res["systems"]))
+        self.assertIn("ADHD MODE ACTIVE", res["systems"][0])
+        self.assertIn("ADHD MODE ACTIVE", res["systems"][1])
+        self.assertEqual(1, len(res["toasts"]))
+        self.assertIn("assumed human", res["toasts"][0])
+        self.assertTrue(self.log.exists())
+        log_lines = self.log.read_text().strip().splitlines()
+        self.assertEqual(1, len(log_lines))
+        entry = json.loads(log_lines[0])
+        self.assertEqual("opencode", entry["agent"])
+        self.assertEqual("injected", entry["result"])
+
+    def test_distinct_sessions_get_independent_decisions(self):
+        self.opt_in()
+        res = self.contexts(
+            "v1-context",
+            [{"sessionID": "ses_a"}, {"sessionID": "ses_b"}],
+            extra_env={"I_HAVE_ADHD_LOG": "1"},
+        )
+        self.assertEqual(2, len(res["systems"]))
+        self.assertIn("ADHD MODE ACTIVE", res["systems"][0])
+        self.assertIn("ADHD MODE ACTIVE", res["systems"][1])
+        self.assertEqual(2, len(res["toasts"]))
+        self.assertTrue(self.log.exists())
+        log_lines = self.log.read_text().strip().splitlines()
+        self.assertEqual(2, len(log_lines))
+
+    def test_interleaved_sessions_maintain_distinct_caches(self):
+        self.opt_in()
+        res = self.contexts(
+            "v1-context",
+            [
+                {"sessionID": "ses_1"},
+                {"sessionID": "ses_2"},
+                {"sessionID": "ses_1"},
+                {"sessionID": "ses_2"},
+            ],
+            extra_env={"I_HAVE_ADHD_LOG": "1"},
+        )
+        self.assertEqual(4, len(res["systems"]))
+        for sys in res["systems"]:
+            self.assertIn("ADHD MODE ACTIVE", sys)
+        self.assertEqual(2, len(res["toasts"]))
+        self.assertTrue(self.log.exists())
+        log_lines = self.log.read_text().strip().splitlines()
+        self.assertEqual(2, len(log_lines))
 
     def test_subagent_parent_id_skips_injection_and_toast(self):
         self.opt_in()

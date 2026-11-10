@@ -44,15 +44,44 @@ function rulesetBody() {
     .replace(/(?:\r?\n)+$/, '');
 }
 
+const sessionCache = new Map();
+
 // Only runs after the flag opt-in; OpenCode has no human/non-human signal, so a
 // top-level session is assumed human and any child session (parentID) is not.
-function sessionDecision(value) {
+// Decisions, logs, and toasts are cached per session ID.
+function sessionEntry(value) {
+  const sessionID =
+    typeof value?.sessionID === 'string' && value.sessionID
+      ? value.sessionID
+      : typeof value?.sessionId === 'string' && value.sessionId
+        ? value.sessionId
+        : null;
+
+  if (sessionID && sessionCache.has(sessionID)) {
+    return sessionCache.get(sessionID);
+  }
+
   const decision = classifySession({
     agent: 'opencode',
     ctx: { parentID: value?.parentID },
   });
-  logDecision({ agent: 'opencode', ...decision, flagPath });
-  return decision;
+
+  const entry = { decision, toasted: false };
+  if (sessionID) {
+    sessionCache.set(sessionID, entry);
+  }
+
+  try {
+    logDecision({ agent: 'opencode', ...decision, flagPath });
+  } catch {
+    // Logging failures never block startup or change a decision.
+  }
+
+  return entry;
+}
+
+function sessionDecision(value) {
+  return sessionEntry(value).decision;
 }
 
 function alwaysOnInjection() {
@@ -140,7 +169,9 @@ export default {
       'experimental.chat.system.transform': async (input, output) => {
         const injected = alwaysOnInjection();
         if (!injected) return;
-        if (sessionDecision(input).decision !== 'human') return;
+
+        const entry = sessionEntry(input);
+        if (entry.decision.decision !== 'human') return;
 
         if (output.system.length > 0) {
           output.system[output.system.length - 1] += '\n\n' + injected;
@@ -148,12 +179,15 @@ export default {
           output.system.push(injected);
         }
 
-        try {
-          await plugin?.client?.tui?.showToast?.({
-            body: { message: ASSUMED_HUMAN_TOAST, variant: 'info' },
-          });
-        } catch {
-          // V2 and older V1 releases have no toast API; injection still stands.
+        if (!entry.toasted) {
+          entry.toasted = true;
+          try {
+            await plugin?.client?.tui?.showToast?.({
+              body: { message: ASSUMED_HUMAN_TOAST, variant: 'info' },
+            });
+          } catch {
+            // V2 and older V1 releases have no toast API; injection still stands.
+          }
         }
       },
     };

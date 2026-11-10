@@ -70,9 +70,18 @@ if (mode === 'v1-config' || mode === 'v1-context') {
     await v1.config(config);
     process.stdout.write(JSON.stringify(config));
   } else {
-    const output = { system: [] };
-    await v1['experimental.chat.system.transform'](options || {}, output);
-    emitContext(output.system.join('\n---SEP---\n'));
+    const calls = Array.isArray(options) ? options : [options || {}];
+    const systems = [];
+    for (const call of calls) {
+      const output = { system: [] };
+      await v1['experimental.chat.system.transform'](call, output);
+      systems.push(output.system.join('\n---SEP---\n'));
+    }
+    if (Array.isArray(options)) {
+      process.stdout.write(JSON.stringify({ systems, system: systems[systems.length - 1], toasts }));
+    } else {
+      emitContext(systems[0]);
+    }
   }
 } else {
   await definition.setup(v2ctx);
@@ -93,8 +102,17 @@ if (mode === 'v1-config' || mode === 'v1-context') {
   } else {
     const handler = hooks.get('context');
     if (!handler) process.exit(0);
-    const event = { system: [], ...(options || {}) };
-    await handler(event);
-    emitContext(joined(event));
+    const calls = Array.isArray(options) ? options : [options || {}];
+    const systems = [];
+    for (const call of calls) {
+      const event = { system: [], ...call };
+      await handler(event);
+      systems.push(joined(event));
+    }
+    if (Array.isArray(options)) {
+      process.stdout.write(JSON.stringify({ systems, system: systems[systems.length - 1], toasts }));
+    } else {
+      emitContext(systems[0]);
+    }
   }
 }
