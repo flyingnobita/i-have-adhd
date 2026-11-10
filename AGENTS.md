@@ -23,7 +23,7 @@ Agents can access the complete project by reading repository-relative files afte
 | Pi and OMP                | `package.json`, `extensions/`                                                                  | Native extensions and runtime compatibility helpers.                      |
 | OpenCode                  | `.opencode/`                                                                                   | Auto-discovered plugin and command entry points for V1 (1.18.29+) and V2. |
 | Other runtimes            | `qwen-extension.json`, `kimi.plugin.json`, `gemini-extension.json`, `GEMINI.md`, `plugin.json` | Qwen, Kimi, Gemini, and additional plugin metadata.                       |
-| Documentation             | `README.md`, `INSTALL.md`, `.github/readme/`, `.github/install/`                               | User-facing overview, installation, and translations.                     |
+| Documentation             | `README.md`, `INSTALL.md`, `.github/install/`                                                   | User-facing overview, installation, and translations.                     |
 | Verification              | `tests/`, `scripts/`                                                                           | Unit tests, compatibility checks, and evaluation tooling.                 |
 | Contribution workflow     | `CONTRIBUTING.md`, `.github/pull_request_template.md`                                          | Authorship, labels, safety, review, and PR requirements.                  |
 

@@ -1,5 +1,7 @@
 # Changelog
 
+- Nov-10, 2026 - 10:51 PM +08 - Remove the translated readmes. They were copies of upstream's readme with a fork note on top, nothing linked them once the English readme stopped being a copy, and the install translations in `.github/install` still cover non-English readers.
+
 - Nov-10, 2026 - 10:51 PM +08 - Rewrite the README for the fork: open with the fork and why it exists, drop the pasted upstream copy, and state the rules, install, and credits in the fork's own words.
 
 - Nov-10, 2026 - 07:55 PM +08 - Release 0.5.1 loads always-on rules in the Codex TUI: a plain `codex` parent with no subcommand is now a human session, while `codex exec` (or `e`) stays non-human.

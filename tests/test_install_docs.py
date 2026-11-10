@@ -154,22 +154,9 @@ class ForkInstallDocsTest(unittest.TestCase):
             self.assertIn(route, install)
 
     def test_translations_point_to_fork_and_link_english_gating_docs(self):
-        readmes = sorted((ROOT / ".github/readme").glob("README.*.md"))
         installs = sorted((ROOT / ".github/install").glob("INSTALL.*.md"))
-        self.assertEqual(11, len(readmes))
         self.assertEqual(8, len(installs))
-
-        for path in readmes:
-            with self.subTest(file=path.name):
-                text = path.read_text(encoding="utf8")
-                self.assertIn("../../README.md#why-this-fork-exists", text)
-                self.assertIn("flyingnobita/i-have-adhd", text)
-                historical = re.sub(
-                    r"https://github\.com/ayghri/i-have-adhd/(?:issues|pull)/\d+",
-                    "",
-                    text,
-                )
-                self.assertNotIn("ayghri/i-have-adhd", historical)
+        self.assertFalse((ROOT / ".github/readme").exists())
 
         for path in installs:
             with self.subTest(file=path.name):
