@@ -306,6 +306,21 @@ class OpenCodePluginTest(unittest.TestCase):
                 self.assertIn("ADHD MODE ACTIVE", payload["systems"][1])
                 self.assertEqual(2, payload.get("lookups"))
 
+    def test_v2_async_stream_evicts_cache_entry(self):
+        self.opt_in()
+        steps = [
+            {"type": "transform", "call": {"sessionID": "ses_v2_evict"}},
+            {"type": "event", "event": {"type": "session.deleted", "sessionID": "ses_v2_evict"}},
+            {"type": "transform", "call": {"sessionID": "ses_v2_evict"}},
+        ]
+        res = self.run_plugin("context", {"steps": steps})
+        self.assertEqual(0, res.returncode, res.stderr)
+        payload = json.loads(res.stdout)
+        self.assertEqual(2, len(payload["systems"]))
+        self.assertIn("ADHD MODE ACTIVE", payload["systems"][0])
+        self.assertIn("ADHD MODE ACTIVE", payload["systems"][1])
+        self.assertEqual(2, payload.get("lookups"))
+
     def test_opt_out_wins_over_top_level_assumption(self):
         self.opt_in()
         for mode in INJECTION_MODES:

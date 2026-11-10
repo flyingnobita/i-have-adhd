@@ -23,6 +23,36 @@ const editorFor = (store) => ({
 let lookups = 0;
 const sessionStore = new Map();
 const eventSubscribers = [];
+const eventQueue = [];
+const eventWaiters = [];
+
+const pushEvent = (ev) => {
+  if (eventWaiters.length > 0) {
+    const waiter = eventWaiters.shift();
+    waiter(ev);
+  } else {
+    eventQueue.push(ev);
+  }
+};
+
+const v2EventStream = {
+  [Symbol.asyncIterator]() {
+    return {
+      async next() {
+        if (eventQueue.length > 0) {
+          const value = eventQueue.shift();
+          return { value, done: false };
+        }
+        return new Promise((resolve) => {
+          eventWaiters.push((value) => resolve({ value, done: false }));
+        });
+      },
+      async return() {
+        return { done: true };
+      },
+    };
+  },
+};
 
 const seedSession = (s) => {
   if (s && typeof s === 'object' && s.sessionID) {
@@ -92,9 +122,11 @@ const v2ctx = {
     },
   },
   event: {
-    subscribe: (handler) => {
-      eventSubscribers.push(handler);
-      return { dispose: () => {} };
+    subscribe: (opts) => {
+      if (typeof opts === 'function') {
+        return { dispose: () => {} };
+      }
+      return v2EventStream;
     },
   },
 };
@@ -182,9 +214,8 @@ if (mode === 'v1-config' || mode === 'v1-context') {
     const systems = [];
     for (const step of options.steps) {
       if (step.type === 'event') {
-        for (const sub of eventSubscribers) {
-          await sub(step.event);
-        }
+        pushEvent(step.event);
+        await new Promise((resolve) => setImmediate(resolve));
       } else if (handler) {
         const event = { system: [], ...(step.call || {}) };
         await handler(event);

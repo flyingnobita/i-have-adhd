@@ -229,17 +229,40 @@ export default {
     }
 
     try {
-      ctx.event?.subscribe?.((event) => {
-        if (event?.type === 'session.deleted') {
-          const id =
-            event?.properties?.sessionID ||
-            event?.properties?.id ||
-            event?.sessionID ||
-            event?.sessionId ||
-            event?.id;
-          if (id) sessionCache.delete(id);
-        }
-      });
+      if (typeof ctx.event?.subscribe === 'function') {
+        (async () => {
+          try {
+            const stream = ctx.event.subscribe({ types: ['session.deleted'] });
+            if (stream && typeof stream[Symbol.asyncIterator] === 'function') {
+              for await (const event of stream) {
+                if (event?.type === 'session.deleted') {
+                  const id =
+                    event?.properties?.sessionID ||
+                    event?.properties?.id ||
+                    event?.sessionID ||
+                    event?.sessionId ||
+                    event?.id;
+                  if (id) sessionCache.delete(id);
+                }
+              }
+            } else if (typeof stream?.subscribe === 'function') {
+              stream.subscribe((event) => {
+                if (event?.type === 'session.deleted') {
+                  const id =
+                    event?.properties?.sessionID ||
+                    event?.properties?.id ||
+                    event?.sessionID ||
+                    event?.sessionId ||
+                    event?.id;
+                  if (id) sessionCache.delete(id);
+                }
+              });
+            }
+          } catch {
+            // Subscription failure must not block plugin loading.
+          }
+        })();
+      }
     } catch {
       // Event subscription failure must not block plugin loading.
     }
