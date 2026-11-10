@@ -189,6 +189,28 @@ function alwaysOnInjection() {
   }
 }
 
+function extractDeletedSessionId(event) {
+  if (typeof event?.data?.sessionID === 'string' && event.data.sessionID) {
+    return event.data.sessionID;
+  }
+  if (
+    typeof event?.durable?.aggregateID === 'string' &&
+    event.durable.aggregateID.startsWith('ses_')
+  ) {
+    return event.durable.aggregateID;
+  }
+  if (typeof event?.properties?.info?.id === 'string' && event.properties.info.id) {
+    return event.properties.info.id;
+  }
+  if (typeof event?.properties?.sessionID === 'string' && event.properties.sessionID) {
+    return event.properties.sessionID;
+  }
+  if (typeof event?.properties?.id === 'string' && event.properties.id) {
+    return event.properties.id;
+  }
+  return null;
+}
+
 export default {
   id: SKILL_ID,
 
@@ -236,24 +258,14 @@ export default {
             if (stream && typeof stream[Symbol.asyncIterator] === 'function') {
               for await (const event of stream) {
                 if (event?.type === 'session.deleted') {
-                  const id =
-                    event?.properties?.sessionID ||
-                    event?.properties?.id ||
-                    event?.sessionID ||
-                    event?.sessionId ||
-                    event?.id;
+                  const id = extractDeletedSessionId(event);
                   if (id) sessionCache.delete(id);
                 }
               }
             } else if (typeof stream?.subscribe === 'function') {
               stream.subscribe((event) => {
                 if (event?.type === 'session.deleted') {
-                  const id =
-                    event?.properties?.sessionID ||
-                    event?.properties?.id ||
-                    event?.sessionID ||
-                    event?.sessionId ||
-                    event?.id;
+                  const id = extractDeletedSessionId(event);
                   if (id) sessionCache.delete(id);
                 }
               });
@@ -284,12 +296,7 @@ export default {
     return {
       event: async ({ event }) => {
         if (event?.type === 'session.deleted') {
-          const id =
-            event?.properties?.sessionID ||
-            event?.properties?.id ||
-            event?.sessionID ||
-            event?.sessionId ||
-            event?.id;
+          const id = extractDeletedSessionId(event);
           if (id) sessionCache.delete(id);
         }
       },

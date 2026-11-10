@@ -1,5 +1,6 @@
 # Changelog
 
+- Nov-10, 2026 - 05:50 PM +08 - Evict OpenCode session cache on the real V2 session.deleted envelope.
 - Nov-10, 2026 - 05:35 PM +08 - Drop redundant command token in Win32 fallback process parsing to correctly identify Codex parents.
 - Nov-10, 2026 - 05:30 PM +08 - Consume OpenCode V2 event stream to evict deleted sessions from cache.
 - Nov-10, 2026 - 05:25 PM +08 - Fail closed as unclear when OpenCode V1 session lookup returns an error object without data.

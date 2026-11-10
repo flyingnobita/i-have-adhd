@@ -295,7 +295,14 @@ class OpenCodePluginTest(unittest.TestCase):
             with self.subTest(mode=mode):
                 steps = [
                     {"type": "transform", "call": {"sessionID": "ses_evict"}},
-                    {"type": "event", "event": {"type": "session.deleted", "sessionID": "ses_evict"}},
+                    {
+                        "type": "event",
+                        "event": {
+                            "type": "session.deleted",
+                            "data": {"sessionID": "ses_evict"},
+                            "properties": {"info": {"id": "ses_evict"}},
+                        },
+                    },
                     {"type": "transform", "call": {"sessionID": "ses_evict"}},
                 ]
                 res = self.run_plugin(mode, {"steps": steps})
@@ -310,7 +317,13 @@ class OpenCodePluginTest(unittest.TestCase):
         self.opt_in()
         steps = [
             {"type": "transform", "call": {"sessionID": "ses_v2_evict"}},
-            {"type": "event", "event": {"type": "session.deleted", "sessionID": "ses_v2_evict"}},
+            {
+                "type": "event",
+                "event": {
+                    "type": "session.deleted",
+                    "data": {"sessionID": "ses_v2_evict"},
+                },
+            },
             {"type": "transform", "call": {"sessionID": "ses_v2_evict"}},
         ]
         res = self.run_plugin("context", {"steps": steps})
@@ -320,6 +333,106 @@ class OpenCodePluginTest(unittest.TestCase):
         self.assertIn("ADHD MODE ACTIVE", payload["systems"][0])
         self.assertIn("ADHD MODE ACTIVE", payload["systems"][1])
         self.assertEqual(2, payload.get("lookups"))
+
+    def test_real_v2_session_deleted_envelope_evicts_cache(self):
+        self.opt_in()
+        steps = [
+            {"type": "transform", "call": {"sessionID": "ses_v2_real"}},
+            {
+                "type": "event",
+                "event": {
+                    "id": "evt_1c4d305de001N54WlhS9KdELuF",
+                    "created": 1794303526366,
+                    "type": "session.deleted",
+                    "durable": {"aggregateID": "ses_v2_real", "seq": 13, "version": 2},
+                    "data": {"sessionID": "ses_v2_real"},
+                },
+            },
+            {"type": "transform", "call": {"sessionID": "ses_v2_real"}},
+        ]
+        res = self.run_plugin("context", {"steps": steps})
+        self.assertEqual(0, res.returncode, res.stderr)
+        payload = json.loads(res.stdout)
+        self.assertEqual(2, len(payload["systems"]))
+        self.assertIn("ADHD MODE ACTIVE", payload["systems"][0])
+        self.assertIn("ADHD MODE ACTIVE", payload["systems"][1])
+        self.assertEqual(2, payload.get("lookups"))
+
+    def test_event_with_only_event_id_evicts_nothing(self):
+        self.opt_in()
+        steps = [
+            {"type": "transform", "call": {"sessionID": "evt_only_no_session"}},
+            {
+                "type": "event",
+                "event": {
+                    "id": "evt_only_no_session",
+                    "type": "session.deleted",
+                },
+            },
+            {"type": "transform", "call": {"sessionID": "evt_only_no_session"}},
+        ]
+        res = self.run_plugin("context", {"steps": steps})
+        self.assertEqual(0, res.returncode, res.stderr)
+        payload = json.loads(res.stdout)
+        self.assertEqual(2, len(payload["systems"]))
+        self.assertEqual(1, payload.get("lookups"))
+
+    def test_v1_session_deleted_shape_evicts_cache(self):
+        self.opt_in()
+        steps = [
+            {"type": "transform", "call": {"sessionID": "ses_v1_info"}},
+            {
+                "type": "event",
+                "event": {
+                    "type": "session.deleted",
+                    "properties": {"info": {"id": "ses_v1_info"}},
+                },
+            },
+            {"type": "transform", "call": {"sessionID": "ses_v1_info"}},
+        ]
+        res = self.run_plugin("v1-context", {"steps": steps})
+        self.assertEqual(0, res.returncode, res.stderr)
+        payload = json.loads(res.stdout)
+        self.assertEqual(2, len(payload["systems"]))
+        self.assertIn("ADHD MODE ACTIVE", payload["systems"][0])
+        self.assertIn("ADHD MODE ACTIVE", payload["systems"][1])
+        self.assertEqual(2, payload.get("lookups"))
+
+    def test_aggregate_id_evicts_cache_only_when_starting_with_ses(self):
+        self.opt_in()
+        # Case 1: aggregateID starting with ses_ evicts
+        steps_match = [
+            {"type": "transform", "call": {"sessionID": "ses_agg_1"}},
+            {
+                "type": "event",
+                "event": {
+                    "type": "session.deleted",
+                    "durable": {"aggregateID": "ses_agg_1"},
+                },
+            },
+            {"type": "transform", "call": {"sessionID": "ses_agg_1"}},
+        ]
+        res = self.run_plugin("context", {"steps": steps_match})
+        self.assertEqual(0, res.returncode, res.stderr)
+        payload = json.loads(res.stdout)
+        self.assertEqual(2, payload.get("lookups"))
+
+        # Case 2: aggregateID not starting with ses_ does not evict
+        steps_no_match = [
+            {"type": "transform", "call": {"sessionID": "ses_keep"}},
+            {
+                "type": "event",
+                "event": {
+                    "type": "session.deleted",
+                    "durable": {"aggregateID": "user_123"},
+                },
+            },
+            {"type": "transform", "call": {"sessionID": "ses_keep"}},
+        ]
+        res = self.run_plugin("context", {"steps": steps_no_match})
+        self.assertEqual(0, res.returncode, res.stderr)
+        payload = json.loads(res.stdout)
+        self.assertEqual(1, payload.get("lookups"))
 
     def test_opt_out_wins_over_top_level_assumption(self):
         self.opt_in()
