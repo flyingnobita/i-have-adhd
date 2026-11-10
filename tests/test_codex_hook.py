@@ -67,6 +67,7 @@ printf '%s\\n' {json.dumps(line)}
         env.update(
             {
                 "HOME": str(self.home),
+                "USERPROFILE": str(self.home),
                 "PATH": str(self.bin_dir) + os.pathsep + env.get("PATH", ""),
                 "CLAUDE_CONFIG_DIR": str(self.config_dir),
                 "CLAUDE_PLUGIN_ROOT": str(self.plugin_root),

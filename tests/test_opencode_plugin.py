@@ -42,6 +42,7 @@ class OpenCodePluginTest(unittest.TestCase):
         env.update(
             {
                 "HOME": str(self.home_dir),
+                "USERPROFILE": str(self.home_dir),
                 "XDG_CONFIG_HOME": str(self.config_dir),
                 "XDG_STATE_HOME": str(self.home_dir / "state"),
             }
@@ -585,6 +586,8 @@ class OpenCodePluginTest(unittest.TestCase):
         self.assertTrue(impl.is_file())
 
         env = os.environ.copy()
+        env["HOME"] = str(self.home_dir)
+        env["USERPROFILE"] = str(self.home_dir)
         env["XDG_CONFIG_HOME"] = str(self.config_dir)
         script = (
             "const a = (await import(process.argv[1])).default;"

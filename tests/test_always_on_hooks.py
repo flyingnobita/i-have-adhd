@@ -67,6 +67,7 @@ class AlwaysOnHookTest(unittest.TestCase):
         env.update(
             {
                 "HOME": str(self.home_dir),
+                "USERPROFILE": str(self.home_dir),
                 "CLAUDE_CONFIG_DIR": str(self.config_dir),
                 "CLAUDE_PLUGIN_ROOT": str(self.plugin_root),
                 "PLUGIN_ROOT": str(self.plugin_root),

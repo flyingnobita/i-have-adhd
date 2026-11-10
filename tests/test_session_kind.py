@@ -212,6 +212,7 @@ class DecisionLogTest(unittest.TestCase):
         env.update(
             {
                 "HOME": str(self.home),
+                "USERPROFILE": str(self.home),
                 "XDG_CONFIG_HOME": str(self.home / ".config"),
                 "XDG_STATE_HOME": str(self.home / "state"),
                 "CLAUDE_CONFIG_DIR": str(self.config_dir),
