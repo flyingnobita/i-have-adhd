@@ -167,10 +167,23 @@ Candidate input grows by the injected skill body on every call; output shrinks.
 `measure` reports `model: null` because this runner output does not record model
 metadata, so the model above is the pinned runner setting, not an observed field.
 
-## Release gate: PASSED
+## Release gate: PASSED (no-regression)
 
-Candidate has no blocking findings, correctness and safety match baseline, and
-the weighted score is above baseline.
+These five cases are gated on no regression, not on an improvement:
+
+- no candidate blocker;
+- candidate correctness and safety within 0.1 of baseline;
+- the weighted score is reported but does not gate the release.
+
+A tie with baseline is the expected result: these cases check that the skill
+does not break a format another skill or the harness requires, so the skill
+should leave them as they are. This run scored 4.95 against a 4.85 baseline with
+0 blockers on both sides and correctness and safety equal to baseline, so it
+passes the no-regression gate.
+
+`scripts/run_evals.py` is unchanged, so its strict "candidate must beat
+baseline" gate still applies to the original 14 cases. This run also passed that
+strict gate (4.95 > 4.85); that is a bonus, not the requirement here.
 
 One trial per case is a smoke gate, not evidence of broad quality improvement:
 the score floor is high (every case ≥ 4.45) and per-case variance is unknown at
