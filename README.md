@@ -26,13 +26,7 @@ Decision logging is off by default. Add a line containing exactly `log` to the a
 
 `I_HAVE_ADHD=0` overrides every human signal and disables automatic injection. Orchestrators set it for workers so ADHD chat formatting does not shape subagent prompts, orchestrator reports, files, commits, PRs, or handoffs.
 
-Herdr can set it for one worker:
-
-```bash
-herdr agent start ... -- env I_HAVE_ADHD=0 <agent>
-```
-
-Or export `I_HAVE_ADHD=0` in the Herdr pane before starting the agent. For Orca, set it in the worker's environment where the launcher allows; otherwise rely on the skill's scope clause, which tells unattended workers to ignore it.
+Run `export I_HAVE_ADHD=0` in the Herdr pane first, for example `herdr pane run <pane> "export I_HAVE_ADHD=0"`, then `herdr agent start ...`. For Orca, set it in the worker's environment where the launcher allows; otherwise rely on the skill's scope clause, which tells unattended workers to ignore it.
 
 ### OpenCode exception
 

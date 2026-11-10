@@ -95,7 +95,7 @@ class ForkInstallDocsTest(unittest.TestCase):
             "~/.local/state/i-have-adhd/decisions.log",
             "I_HAVE_ADHD_LOG=1",
             "I_HAVE_ADHD=0",
-            "herdr agent start ... -- env I_HAVE_ADHD=0 <agent>",
+            'herdr pane run <pane> "export I_HAVE_ADHD=0"',
             "Orca",
             "scope clause",
             "assumed human",

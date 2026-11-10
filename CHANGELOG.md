@@ -1,5 +1,6 @@
 # Changelog
 
+- Nov-10, 2026 - 04:27 PM +08 - Correct Herdr worker opt-out documentation to export I_HAVE_ADHD=0 in the pane before starting the agent.
 - Nov-10, 2026 - 04:26 PM +08 - Cache OpenCode session decisions to log and toast at most once per session ID across repeated transforms.
 - Nov-10, 2026 - 04:24 PM +08 - Treat Codex subcommand alias "e" as non-human execution.
 - Nov-10, 2026 - 04:23 PM +08 - Fix Codex subcommand discovery to skip leading global options and value flags before classifying the session.
