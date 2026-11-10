@@ -30,7 +30,7 @@ Run `export I_HAVE_ADHD=0` in the Herdr pane first, for example `herdr pane run 
 
 ### OpenCode exception
 
-OpenCode has no signal that distinguishes `run` from the TUI. With the always-on flag, a top-level session is therefore assumed human, while a `parentID` subagent is skipped. OpenCode V1 shows an `assumed human` toast after injection; V2 has no toast API.
+OpenCode has no signal that distinguishes `run` from the TUI. With the always-on flag, top-level sessions are assumed human, while subagents are skipped by querying OpenCode's session API (`client.session.get` in V1, `ctx.session.get` in V2) to inspect `parentID`. If the lookup fails or the session ID is missing, the decision fails closed as unclear (no injection). OpenCode V1 shows an `assumed human` toast after injection; V2 has no toast API.
 
 See [INSTALL.md](INSTALL.md) for installation, upstream removal, Codex hook trust, and agent-specific flag paths.
 

@@ -23,13 +23,13 @@ Always-on rules remain opt-in and load only in human sessions; explicit `/i-have
 
 Pi and omp read `.i-have-adhd-always` and the optional `i-have-adhd.json` from their agent configuration directory. Pi defaults to `~/.pi/agent/.i-have-adhd-always`; omp uses its own agent directory. Automatic activation from the flag, `alwaysOn`, or Pi's `--adhd` follows the [decision table](README.md#why-this-fork-exists): human enables, non-human stays silent, and unclear disables with the notice. A saved per-session choice and explicit commands remain manual behavior.
 
-OpenCode's exception is that a top-level session is assumed human because `run` and TUI sessions have no distinguishing signal. Subagents with a `parentID` are skipped. OpenCode V1 shows an `assumed human` toast after top-level injection; V2 does not attempt a toast.
+OpenCode's exception is that a top-level session is assumed human because `run` and TUI sessions have no distinguishing signal. Subagents with a `parentID` are identified and skipped by querying OpenCode's session API (`client.session.get` in V1, `ctx.session.get` in V2); if the lookup fails or the session cannot be identified, it fails closed as unclear. OpenCode V1 shows an `assumed human` toast after top-level injection; V2 does not attempt a toast.
 
 Set `I_HAVE_ADHD=0` in any worker or non-human environment to override every other signal. Decision logging is off by default. Enable it with `I_HAVE_ADHD_LOG=1` or a line exactly `log` in the relevant flag file; entries go to `~/.local/state/i-have-adhd/decisions.log` as one JSON object per line. The log contains only the timestamp, agent, normalized allowlisted signals, and result.
 
 ## Codex first-run trust
 
-Codex asks you to trust the new hook on first run. Review and trust the fork's structured SessionStart hook, then restart Codex. The hook supplies the complete skill through `hookSpecificOutput.additionalContext`; an unclear session receives only a `systemMessage` notice. Non-human, opted-out, missing-flag, and failure paths stay silent.
+Codex asks you to trust the new hook on first run. Review and trust the fork's structured SessionStart hook, then restart Codex. Alternatively, the trusted hook hash can be pre-seeded in `~/.codex/config.toml` under `[hooks.SessionStart]` as `trusted_hash = "sha256:..."`. When pre-seeding, note that `trusted_hash` must match the first `sha256:` portion (before `/`) in `hooks/list` `currentHash`. The hook supplies the complete skill through `hookSpecificOutput.additionalContext`; an unclear session receives only a `systemMessage` notice. Non-human, opted-out, missing-flag, and failure paths stay silent.
 
 # How to install
 
@@ -251,7 +251,7 @@ The Codex hook requires Node.js and shares Claude's flag path. Opt in with:
 touch ~/.claude/.i-have-adhd-always
 ```
 
-Or create `.i-have-adhd-always` under `$CLAUDE_CONFIG_DIR`. Codex asks you to trust the structured hook on first run. A managed app-server parent receives the complete rules; `codex exec` is silent; any other parent receives only the unclear-session notice. Delete the flag to return to explicit activation.
+Or create `.i-have-adhd-always` under `$CLAUDE_CONFIG_DIR`. Codex asks you to trust the structured hook on first run (or you can pre-seed `trusted_hash` with the first `sha256:...` half of `hooks/list` `currentHash` in `~/.codex/config.toml`). A managed app-server parent receives the complete rules; `codex exec` is silent; any other parent receives only the unclear-session notice. Delete the flag to return to explicit activation.
 
 </details>
 
@@ -579,7 +579,7 @@ Remove `~/.config/opencode/plugins/i-have-adhd.js`. For the copy-based install, 
 
 ### Always-on (optional)
 
-Requires the plugin. For a top-level session, the flag adds the complete ruleset to the system prompt. OpenCode assumes that top-level session is human; a `parentID` subagent is skipped. V1 shows an `assumed human` toast after injection, while V2 has no toast API:
+Requires the plugin. For a top-level session, the flag adds the complete ruleset to the system prompt. OpenCode assumes that top-level session is human; subagents are skipped by querying the session API (`client.session.get` in V1, `ctx.session.get` in V2) to detect `parentID`. If the session lookup fails or the session ID is missing, the hook fails closed as unclear. V1 shows an `assumed human` toast after injection, while V2 has no toast API:
 
 ```bash
 touch ~/.config/opencode/.i-have-adhd-always
