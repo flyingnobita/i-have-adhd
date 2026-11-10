@@ -93,7 +93,7 @@ function classifyCodex(parent) {
     }
     return unclear("codex-parent-unknown", { parent: "app-server" });
   }
-  if (subcommand === "exec") return result("non-human", "codex-exec", { parent: "exec" });
+  if (subcommand === "exec" || subcommand === "e") return result("non-human", "codex-exec", { parent: "exec" });
   return unclear("codex-parent-unknown", { parent: "unknown" });
 }
 

@@ -107,6 +107,12 @@ class SessionKindTest(unittest.TestCase):
                 result = self.classify(agent="codex", parent=parent)
                 self.assertEqual(expected, result["decision"])
 
+    def test_codex_alias_e_is_non_human(self):
+        result = self.classify(agent="codex", parent=["codex", "e", "do the thing"])
+        self.assertEqual("non-human", result["decision"])
+        self.assertEqual("codex-exec", result["reason"])
+        self.assertEqual({"parent": "exec"}, result["signals"])
+
     def test_pi_mode_mapping(self):
         for mode, decision in {"tui": "human", "print": "non-human", "json": "non-human", "rpc": "unclear"}.items():
             with self.subTest(mode=mode):
