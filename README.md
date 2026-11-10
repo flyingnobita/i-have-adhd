@@ -6,6 +6,7 @@
 </p>
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/github/license/flyingnobita/i-have-adhd?style=flat" alt="License"></a>
+  <a href="https://skills.sh/flyingnobita/i-have-adhd"><img src="https://skills.sh/b/flyingnobita/i-have-adhd" alt="skills.sh"></a>
 </p>
 
 # i-have-adhd

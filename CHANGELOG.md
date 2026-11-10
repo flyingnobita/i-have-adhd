@@ -1,5 +1,7 @@
 # Changelog
 
+- Nov-10, 2026 - 10:57 PM +08 - Release 0.5.2 publishes the fork: the README rewritten in the fork's own words, translated readme copies removed, and the skill listed on skills.sh alongside the Claude, Codex, and OMP marketplaces.
+
 - Nov-10, 2026 - 10:51 PM +08 - Remove the translated readmes. They were copies of upstream's readme with a fork note on top, nothing linked them once the English readme stopped being a copy, and the install translations in `.github/install` still cover non-English readers.
 
 - Nov-10, 2026 - 10:51 PM +08 - Rewrite the README for the fork: open with the fork and why it exists, drop the pasted upstream copy, and state the rules, install, and credits in the fork's own words.
