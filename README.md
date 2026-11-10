@@ -9,10 +9,10 @@ Always-on remains opt-in through each agent's flag file or configuration. The au
 | Agent | Human | Non-human | Unclear |
 | --- | --- | --- | --- |
 | Claude | `CLAUDE_CODE_SESSION_ATTENDED=1` | `CLAUDE_CODE_SESSION_ATTENDED=0` | unset or malformed |
-| Codex | parent `codex app-server ... --managed-daemon` | parent `codex exec` | any other parent |
+| Codex | parent `codex app-server ... --managed-daemon` | parent `codex exec` (or `e`) | any other parent |
 | Pi | `mode=tui` | `mode=print` or `mode=json` | `mode=rpc` or missing/malformed signals |
 | omp | `kind=main` and `mode=tui` | `kind=sub`, `mode=print`, or `mode=json` | main `mode=rpc` or missing/malformed signals |
-| OpenCode | top-level session (assumed human) | any `parentID` subagent | malformed `parentID` |
+| OpenCode | top-level session (assumed human) | any `parentID` subagent | the session lookup fails or returns no session, the session ID is missing, or the `parentID` is malformed |
 
 An unclear session does not load the rules and shows only this notice:
 

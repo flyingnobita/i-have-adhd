@@ -84,10 +84,10 @@ class ForkInstallDocsTest(unittest.TestCase):
         self.assertIn("| Agent | Human | Non-human | Unclear |", readme)
         for row in (
             "| Claude | `CLAUDE_CODE_SESSION_ATTENDED=1` | `CLAUDE_CODE_SESSION_ATTENDED=0` | unset or malformed |",
-            "| Codex | parent `codex app-server ... --managed-daemon` | parent `codex exec` | any other parent |",
+            "| Codex | parent `codex app-server ... --managed-daemon` | parent `codex exec` (or `e`) | any other parent |",
             "| Pi | `mode=tui` | `mode=print` or `mode=json` | `mode=rpc` or missing/malformed signals |",
             "| omp | `kind=main` and `mode=tui` | `kind=sub`, `mode=print`, or `mode=json` | main `mode=rpc` or missing/malformed signals |",
-            "| OpenCode | top-level session (assumed human) | any `parentID` subagent | malformed `parentID` |",
+            "| OpenCode | top-level session (assumed human) | any `parentID` subagent | the session lookup fails or returns no session, the session ID is missing, or the `parentID` is malformed |",
         ):
             self.assertIn(row, readme)
         for required in (

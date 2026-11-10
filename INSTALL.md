@@ -29,7 +29,14 @@ Set `I_HAVE_ADHD=0` in any worker or non-human environment to override every oth
 
 ## Codex first-run trust
 
-Codex asks you to trust the new hook on first run. Review and trust the fork's structured SessionStart hook, then restart Codex. Alternatively, the trusted hook hash can be pre-seeded in `~/.codex/config.toml` under `[hooks.SessionStart]` as `trusted_hash = "sha256:..."`. When pre-seeding, note that `trusted_hash` must match the first `sha256:` portion (before `/`) in `hooks/list` `currentHash`. The hook supplies the complete skill through `hookSpecificOutput.additionalContext`; an unclear session receives only a `systemMessage` notice. Non-human, opted-out, missing-flag, and failure paths stay silent.
+Codex asks you to trust the new hook on first run. Review and trust the fork's structured SessionStart hook, then restart Codex; trusting the hook in Codex on first run is the normal path. Alternatively, the trusted hook hash can be pre-seeded in `~/.codex/config.toml`:
+
+```toml
+[hooks.state."i-have-adhd@<marketplace>:hooks/hooks.codex.json:session_start:0:0"]
+trusted_hash = "sha256:<first part of currentHash before />"
+```
+
+where `<marketplace>` is `flyingnobita-i-have-adhd` for the documented install. Note that `trusted_hash` comes from the app-server `hooks/list` `currentHash` (the first part before `/`). The hook supplies the complete skill through `hookSpecificOutput.additionalContext`; an unclear session receives only a `systemMessage` notice. Non-human, opted-out, missing-flag, and failure paths stay silent.
 
 # How to install
 
@@ -251,7 +258,7 @@ The Codex hook requires Node.js and shares Claude's flag path. Opt in with:
 touch ~/.claude/.i-have-adhd-always
 ```
 
-Or create `.i-have-adhd-always` under `$CLAUDE_CONFIG_DIR`. Codex asks you to trust the structured hook on first run (or you can pre-seed `trusted_hash` with the first `sha256:...` half of `hooks/list` `currentHash` in `~/.codex/config.toml`). A managed app-server parent receives the complete rules; `codex exec` is silent; any other parent receives only the unclear-session notice. Delete the flag to return to explicit activation.
+Or create `.i-have-adhd-always` under `$CLAUDE_CONFIG_DIR`. Codex asks you to trust the structured hook on first run (trusting it on first run is the normal path, or you can pre-seed `trusted_hash` under `[hooks.state."i-have-adhd@flyingnobita-i-have-adhd:hooks/hooks.codex.json:session_start:0:0"]` in `~/.codex/config.toml` with the first `sha256:...` part of the app-server `hooks/list` `currentHash` before `/`). A managed app-server parent receives the complete rules; `codex exec` (or `e`) is silent; any other parent receives only the unclear-session notice. Delete the flag to return to explicit activation.
 
 </details>
 
