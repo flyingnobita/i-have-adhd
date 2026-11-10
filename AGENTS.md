@@ -70,3 +70,9 @@ claude plugin validate .
 ```
 
 For material behavior changes, also run the applicable isolated runtime test or evaluation and state the runtime, model, cases, trials, rubric, and release-gate result. Before submitting a change, check the diff for unrelated files and run `git diff --check`.
+
+## Delivery
+
+**Autonomous delivery:** When the user starts work in this repository (an issue, spec, tickets or a description), agents may push the work branch, open a pull request, and merge it into the default branch without a further request, provided all checks pass: the full test suite, linters, the review stage, and QA when it was run. Scope changes still require the user's approval.
+
+Tracker default: GitHub issue in `flyingnobita/i-have-adhd`, tracked on Kaneo project `ADHD`.
